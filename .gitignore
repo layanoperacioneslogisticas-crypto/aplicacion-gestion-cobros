@@ -22,5 +22,9 @@ logs/
 # Google Apps Script
 *.clasp.json
 
+# Local tools
+.tools/
+**/.temp/
+
 # System files
 Thumbs.db
