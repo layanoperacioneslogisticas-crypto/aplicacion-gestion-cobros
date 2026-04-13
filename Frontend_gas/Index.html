@@ -480,17 +480,20 @@
 
     .search-box {
       position: relative;
+      display: flex;
+      flex-direction: column;
     }
 
     #searchResults {
-      position: absolute;
-      top: 100%;
-      z-index: 1000;
+      position: static;
+      top: auto;
+      z-index: auto;
       width: 100%;
       max-height: 250px;
       overflow-y: auto;
       display: none;
-      border-radius: 0 0 12px 12px;
+      margin-top: 10px;
+      border-radius: 16px;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
     }
 
@@ -6511,6 +6514,15 @@
       background: transparent;
     }
 
+    #cobroContainer #cobroForm>.card.search-card {
+      overflow: visible;
+      z-index: 2;
+    }
+
+    #cobroContainer #cobroForm>.card.search-card .card-body {
+      overflow: visible;
+    }
+
     #cobroContainer #cobroForm>.card.mb-3.border-0.bg-light.shadow-sm h5 {
       margin-bottom: 14px !important;
       color: #2455b8 !important;
@@ -6762,7 +6774,7 @@
 
   <div id="login-view">
     <div class="login-corner-brand" aria-hidden="true">
-      <div class="brand">PDC SOLUTIONS</div>
+      <div class="brand">PDC DIGITAL</div>
       <div class="sub">Global Logistics Solution</div>
     </div>
     <div class="login-status-rack" aria-hidden="true">
@@ -6891,7 +6903,7 @@
           <div class="dashboard-side-brand erp-side-brand">
             <div class="erp-side-mark">PDC</div>
             <div>
-              <p class="t">PDC SOLUTIONS</p>
+              <p class="t">PDC DIGITAL</p>
               <div class="s">Cobros & Transport Suite</div>
             </div>
           </div>
@@ -7469,7 +7481,7 @@
           </div>
         </div>
 
-        <div class="card mb-3 border-0 bg-light shadow-sm">
+        <div class="card mb-3 border-0 bg-light shadow-sm search-card">
           <div class="card-body p-3">
             <h5 class="text-primary mb-2 fw-bold fs-6"><i class="bi bi-cart-plus me-2"></i>Agregar Ítem</h5>
             <div class="row g-2 align-items-end">
@@ -9660,6 +9672,163 @@
         historial: { data: null, at: 0 }
       };
 
+      function buildApiQueryString_(query) {
+        const params = new URLSearchParams();
+        Object.entries(query || {}).forEach(([key, value]) => {
+          if (value == null || value === '') return;
+          params.append(key, String(value));
+        });
+        return params.toString();
+      }
+
+      const apiRouteMap_ = {
+        validarUsuario: (args) => ({ method: 'POST', path: '/api/session/login', body: { email: args[0] || '', password: args[1] || '' } }),
+        restaurarSesionUsuario: (args) => ({ method: 'GET', path: '/api/session/restore', query: { email: args[0] || '' } }),
+        getDataForFrontend: (args) => ({ method: 'GET', path: '/api/bootstrap', query: { actorEmail: args[0] || '' } }),
+        getResponsablesCatalog: () => ({ method: 'GET', path: '/api/catalog/responsables' }),
+        getEtapasCobro: () => ({ method: 'GET', path: '/api/catalog/etapas-cobro' }),
+        getDashboardStats: (args) => ({ method: 'GET', path: '/api/dashboard/stats', query: { actorEmail: args[0] || '' } }),
+        getAdvancedReportData: (args) => ({ method: 'GET', path: '/api/reports/advanced', query: { inicio: args[0] || '', fin: args[1] || '', actorEmail: args[2] || '' } }),
+        getHistorialCobros: (args) => ({ method: 'GET', path: '/api/history/cobros', query: { limit: args[0], actorEmail: args[1] || '' } }),
+        getPdfRootUrl: () => ({ method: 'GET', path: '/api/storage/pdf-root' }),
+        getPdfRootMeta: () => ({ method: 'GET', path: '/api/storage/pdf-root/meta' }),
+        getUserNotifications: (args) => {
+          const opts = (args[1] && typeof args[1] === 'object') ? args[1] : {};
+          return {
+            method: 'GET',
+            path: '/api/notifications',
+            query: {
+              actorEmail: args[0] || '',
+              limit: opts.limit,
+              includeRead: opts.includeRead,
+              force: opts.force
+            }
+          };
+        },
+        markNotificationRead: (args) => ({ method: 'POST', path: '/api/notifications/' + encodeURIComponent(String(args[0] || '')) + '/read', body: { actorEmail: args[1] || '' } }),
+        markAllNotificationsRead: (args) => ({ method: 'POST', path: '/api/notifications/read-all', body: { actorEmail: args[0] || '' } }),
+        getGestionSnapshot: (args) => ({ method: 'GET', path: '/api/gestion/snapshot', query: { actorEmail: args[0] || '' } }),
+        getGestionResumen: (args) => ({ method: 'GET', path: '/api/gestion/resumen', query: { actorEmail: args[0] || '' } }),
+        deleteGestionCobros: (args) => ({ method: 'POST', path: '/api/gestion/delete', body: { ids: args[0] || [], authKey: args[1] || '', motivo: args[2] || '', actorEmail: args[3] || '', actorCtx: args[4] || {} } }),
+        bulkUpdateResponsable: (args) => ({ method: 'POST', path: '/api/gestion/responsable/bulk', body: { ids: args[0] || [], responsable: args[1] || '', actorEmail: args[2] || '', actorCtx: args[3] || {} } }),
+        bulkMarcarObservado: (args) => ({ method: 'POST', path: '/api/gestion/observado/bulk', body: { ids: args[0] || [], motivo: args[1] || '', areaDestino: args[2] || '', actorEmail: args[3] || '', actorCtx: args[4] || {} } }),
+        generarZipPdfsGestion: (args) => ({ method: 'POST', path: '/api/gestion/pdfs/zip', body: { ids: args[0] || [], actorEmail: args[1] || '', actorCtx: args[2] || {} } }),
+        getCobroTimeline: (args) => ({ method: 'GET', path: '/api/cobros/' + encodeURIComponent(String(args[0] || '')) + '/timeline', query: { limit: args[1], actorEmail: args[2] || '' } }),
+        getCobroFlowData: (args) => ({ method: 'GET', path: '/api/cobros/' + encodeURIComponent(String(args[0] || '')) + '/flow', query: { actorEmail: args[1] || '' } }),
+        listarAprobacionesCriticas: (args) => ({ method: 'GET', path: '/api/aprobaciones-criticas', query: { estado: args[0] || '', actorEmail: args[1] || '' } }),
+        resolverAprobacionCritica: (args) => ({ method: 'POST', path: '/api/aprobaciones-criticas/' + encodeURIComponent(String(args[0] || '')) + '/resolve', body: { aprobar: !!args[1], comentario: args[2] || '', actorEmail: args[3] || '', actorCtx: args[4] || {} } }),
+        procesarCobro: (args) => ({ method: 'POST', path: '/api/cobros', body: args[0] || {} }),
+        updateCobroEtapa: (args) => ({ method: 'POST', path: '/api/cobros/' + encodeURIComponent(String(args[0] || '')) + '/etapa', body: { etapa: args[1] || '', actorEmail: args[2] || '', actorCtx: args[3] || {} } }),
+        updateCobroCampos: (args) => ({ method: 'PATCH', path: '/api/cobros/' + encodeURIComponent(String(args[0] || '')) + '/campos', body: { updates: args[1] || {}, actorEmail: args[2] || '', actorCtx: args[3] || {} } }),
+        setCobroObservado: (args) => ({ method: 'POST', path: '/api/cobros/' + encodeURIComponent(String(args[0] || '')) + '/observado', body: { motivo: args[1] || '', areaDestino: args[2] || '', actorEmail: args[3] || '', actorCtx: args[4] || {} } }),
+        revertirCobroObservado: (args) => ({ method: 'POST', path: '/api/cobros/' + encodeURIComponent(String(args[0] || '')) + '/observado/revertir', body: { actorEmail: args[1] || '', actorCtx: args[2] || {} } }),
+        anularCobro: (args) => ({ method: 'POST', path: '/api/cobros/' + encodeURIComponent(String(args[0] || '')) + '/anular', body: { motivo: args[1] || '', actorEmail: args[2] || '', actorCtx: args[3] || {} } }),
+        subirPdfFlujo: (args) => ({ method: 'POST', path: '/api/cobros/' + encodeURIComponent(String(args[0] || '')) + '/files', body: { fieldName: args[1] || '', fileName: args[2] || '', mimeType: args[3] || '', dataUrl: args[4] || '', actorEmail: args[5] || '', actorCtx: args[6] || {} } }),
+        adminGetUsers: () => ({ method: 'GET', path: '/api/admin/users' }),
+        adminSaveUser: (args) => ({ method: 'POST', path: '/api/admin/users', body: { user: args[0] || {} } }),
+        adminDeleteUser: (args) => ({ method: 'DELETE', path: '/api/admin/users/' + encodeURIComponent(String(args[0] || '')) }),
+        adminGetProveedores: (args) => ({ method: 'GET', path: '/api/admin/providers', query: { actorEmail: args[0] || '' } }),
+        adminSaveProvider: (args) => ({ method: 'POST', path: '/api/admin/providers', body: { provider: args[0] || {}, actorEmail: args[1] || '' } }),
+        adminDeleteProvider: (args) => ({ method: 'DELETE', path: '/api/admin/providers/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
+        adminGetPilotos: (args) => ({ method: 'GET', path: '/api/admin/pilots', query: { actorEmail: args[0] || '' } }),
+        adminSavePilot: (args) => ({ method: 'POST', path: '/api/admin/pilots', body: { pilot: args[0] || {}, actorEmail: args[1] || '' } }),
+        adminDeletePilot: (args) => ({ method: 'DELETE', path: '/api/admin/pilots/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
+        adminGetMaestroItems: (args) => ({ method: 'GET', path: '/api/admin/maestro', query: { actorEmail: args[0] || '' } }),
+        adminGetMaestroItemsJson: (args) => ({ method: 'GET', path: '/api/admin/maestro.json', query: { actorEmail: args[0] || '' } }),
+        adminDebugMaestroState: () => ({ method: 'GET', path: '/api/admin/maestro/debug' }),
+        adminImportMaestroItems: (args) => ({ method: 'POST', path: '/api/admin/maestro/import', body: { items: args[0] || [], options: args[1] || {}, actorEmail: args[2] || '' } }),
+        adminSaveMaestroItem: (args) => ({ method: 'POST', path: '/api/admin/maestro', body: { item: args[0] || {}, actorEmail: args[1] || '' } }),
+        adminDeleteMaestroItem: (args) => ({ method: 'DELETE', path: '/api/admin/maestro/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
+        adminToggleMaestroActivo: (args) => ({ method: 'POST', path: '/api/admin/maestro/' + encodeURIComponent(String(args[0] || '')) + '/toggle-active', body: { active: !!args[1], actorEmail: args[2] || '' } }),
+        getRuleConfigData: (args) => ({ method: 'GET', path: '/api/config/rules', query: { actorEmail: args[0] || '' } }),
+        saveCfgCountry: (args) => ({ method: 'POST', path: '/api/config/countries', body: { country: args[0] || {}, actorEmail: args[1] || '' } }),
+        deleteCfgCountry: (args) => ({ method: 'DELETE', path: '/api/config/countries/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
+        saveCfgRole: (args) => ({ method: 'POST', path: '/api/config/roles', body: { role: args[0] || {}, actorEmail: args[1] || '' } }),
+        deleteCfgRole: (args) => ({ method: 'DELETE', path: '/api/config/roles/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
+        saveCfgStageSla: (args) => ({ method: 'POST', path: '/api/config/stage-sla', body: { stageSla: args[0] || {}, actorEmail: args[1] || '' } }),
+        saveCfgStageNotify: (args) => ({ method: 'POST', path: '/api/config/stage-notify', body: { stageNotify: args[0] || {}, actorEmail: args[1] || '' } }),
+        saveCfgRule: (args) => ({ method: 'POST', path: '/api/config/rules', body: { rule: args[0] || {}, actorEmail: args[1] || '' } }),
+        deleteCfgRule: (args) => ({ method: 'DELETE', path: '/api/config/rules/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
+        saveCfgCorreo: (args) => ({ method: 'POST', path: '/api/config/correos', body: { correo: args[0] || {}, actorEmail: args[1] || '' } }),
+        deleteCfgCorreo: (args) => ({ method: 'DELETE', path: '/api/config/correos/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
+        saveCfgAuthKey: (args) => ({ method: 'POST', path: '/api/config/auth-keys', body: { authKey: args[0] || {}, actorEmail: args[1] || '' } }),
+        deleteCfgAuthKey: (args) => ({ method: 'DELETE', path: '/api/config/auth-keys/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
+        saveMailTransportConfig: (args) => ({ method: 'POST', path: '/api/config/mail-transport', body: { mailTransport: args[0] || {}, actorEmail: args[1] || '' } }),
+        validarMailTransportConfig: (args) => ({ method: 'GET', path: '/api/config/mail-transport/validate', query: { actorEmail: args[0] || '' } }),
+        testMailTransportConfig: (args) => ({ method: 'POST', path: '/api/config/mail-transport/test', body: { destino: args[0] || '', actorEmail: args[1] || '' } }),
+        installDailySlaDigestTrigger: (args) => ({ method: 'POST', path: '/api/config/triggers/daily-sla-digest/install', body: { actorEmail: args[0] || '' } }),
+        adminRunDailyOverdueStageNotifications: (args) => ({ method: 'POST', path: '/api/admin/notifications/daily-overdue/run', body: { forceSend: !!args[0], actorEmail: args[1] || '' } })
+      };
+
+      async function apiFetch_(method, args) {
+        const methodKey = String(method || '').trim();
+        const routeFactory = apiRouteMap_[methodKey];
+        if (typeof routeFactory !== 'function') {
+          throw { message: 'Metodo API no soportado: ' + methodKey };
+        }
+
+        const route = routeFactory(Array.isArray(args) ? args : []);
+        const queryString = buildApiQueryString_(route.query);
+        const url = queryString ? (route.path + '?' + queryString) : route.path;
+        const headers = { Accept: 'application/json' };
+        const init = {
+          method: route.method || 'GET',
+          headers
+        };
+
+        if (route.body !== undefined) {
+          headers['Content-Type'] = 'application/json';
+          init.body = JSON.stringify(route.body);
+        }
+
+        const res = await fetch(url, init);
+        const text = await res.text();
+        let payload = null;
+        try {
+          payload = text ? JSON.parse(text) : null;
+        } catch (e) {
+          payload = text;
+        }
+        if (!res.ok) {
+          throw (payload && typeof payload === 'object')
+            ? payload
+            : { message: String(payload || ('HTTP ' + res.status)) };
+        }
+        return payload;
+      }
+
+      function createApiRunner_(successHandler, failureHandler, userObject) {
+        return new Proxy({}, {
+          get(_target, prop) {
+            if (prop === 'withSuccessHandler') {
+              return (fn) => createApiRunner_(fn, failureHandler, userObject);
+            }
+            if (prop === 'withFailureHandler') {
+              return (fn) => createApiRunner_(successHandler, fn, userObject);
+            }
+            if (prop === 'withUserObject') {
+              return (obj) => createApiRunner_(successHandler, failureHandler, obj);
+            }
+            return (...args) => {
+              return apiFetch_(prop, args)
+                .then((payload) => {
+                  if (typeof successHandler === 'function') successHandler(payload, userObject);
+                  return payload;
+                })
+                .catch((err) => {
+                  if (typeof failureHandler === 'function') {
+                    failureHandler(err, userObject);
+                    return;
+                  }
+                  console.error('API error:', err);
+                });
+            };
+          }
+        });
+      }
+
+      const rpc = createApiRunner_(null, null, null);
+
       // ✅ NUEVO: etapas (se cargan desde backend)
       let etapasCobro = [];
 
@@ -10051,7 +10220,7 @@
         flowTimelineLoading = true;
         updateFlowTimelineHeaderUi();
         const reqSeq = ++flowTimelineRequestSeq;
-        google.script.run
+        rpc
           .withSuccessHandler(rows => {
             if (reqSeq !== flowTimelineRequestSeq) return;
             flowTimelineLoading = false;
@@ -10983,7 +11152,7 @@
         restoreDashboardSidebarState();
         mostrarLoading(true);
 
-        google.script.run.withSuccessHandler(d => {
+        rpc.withSuccessHandler(d => {
           mostrarLoading(false);
           try {
             inicializarDatos(d || {});
@@ -11075,7 +11244,7 @@
 
       function loadNotifications(force) {
         if (!usuarioSesion?.email) return;
-        google.script.run.withSuccessHandler(res => {
+        rpc.withSuccessHandler(res => {
           if (!res || !res.success) return;
           notifCache = Array.isArray(res.rows) ? res.rows : [];
           renderNotifications_(notifCache);
@@ -11096,7 +11265,7 @@
       function openNotification(id, cobroId) {
         const notifId = String(id || '').trim();
         if (!notifId) return;
-        google.script.run.withSuccessHandler(() => {
+        rpc.withSuccessHandler(() => {
           loadNotifications(true);
         }).markNotificationRead(notifId, usuarioSesion?.email || '');
         if (cobroId) {
@@ -11107,7 +11276,7 @@
 
       function markAllNotificationsReadUi() {
         if (!usuarioSesion?.email) return;
-        google.script.run.withSuccessHandler(() => {
+        rpc.withSuccessHandler(() => {
           loadNotifications(true);
         }).markAllNotificationsRead(usuarioSesion.email);
       }
@@ -11132,7 +11301,7 @@
         if (!stored?.user?.email) return;
 
         loginSessionRestoreInFlight = true;
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           loginSessionRestoreInFlight = false;
           if (usuarioSesion) return;
           if (r?.success) {
@@ -11159,7 +11328,7 @@
         btn.innerHTML = 'Validando...'; btn.disabled = true; err.style.display = 'none';
         syncLoginRememberPreference_(em);
 
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           btn.innerHTML = txt; btn.disabled = false;
           if (r.success) {
             bootstrapAuthenticatedSession_(r);
@@ -11208,7 +11377,7 @@
       }
 
       function recargarCatalogosCobro(silent) {
-        google.script.run.withSuccessHandler(d => {
+        rpc.withSuccessHandler(d => {
           inicializarDatos(d || {});
           if (!silent) mostrarAvisosCatalogos(d || {});
           const proveedores = normalizeProviderRows_(d?.proveedores);
@@ -11330,10 +11499,11 @@
       function applyMaestroItems_(rows) {
         const items = normalizeMaestroRows_(rows);
         itemsMaestro = items.filter(item => item && item.activo);
+        refreshItemSearchResults_(false);
       }
 
       function recargarCatalogosCobroFallback_(silent) {
-        google.script.run.withSuccessHandler(rows => {
+        rpc.withSuccessHandler(rows => {
           applyProveedorOptions_(rows);
           setUiCacheData_('proveedores', normalizeProviderRows_(rows));
           syncCobroCatalogCacheFromModules_();
@@ -11341,7 +11511,7 @@
           console.error('Error cargando proveedores:', err);
         }).adminGetProveedores(usuarioSesion?.email || '');
 
-        google.script.run.withSuccessHandler(rows => {
+        rpc.withSuccessHandler(rows => {
           applyPilotoOptions_(rows);
           setUiCacheData_('pilotos', normalizePilotRows_(rows));
           syncCobroCatalogCacheFromModules_();
@@ -11349,7 +11519,7 @@
           console.error('Error cargando pilotos:', err);
         }).adminGetPilotos(usuarioSesion?.email || '');
 
-        google.script.run.withSuccessHandler(rows => {
+        rpc.withSuccessHandler(rows => {
           const users = normalizeUserRows_(rows);
           applyResponsableOptions_(users);
           setUiCacheData_('responsables', users);
@@ -11358,7 +11528,7 @@
           console.error('Error cargando responsables:', err);
         }).getResponsablesCatalog();
 
-        google.script.run.withSuccessHandler(rows => {
+        rpc.withSuccessHandler(rows => {
           const items = normalizeMaestroRows_(rows);
           if (items.length) {
             applyMaestroItems_(items);
@@ -11366,7 +11536,7 @@
             syncCobroCatalogCacheFromModules_();
             return;
           }
-          google.script.run.withSuccessHandler(rawJson => {
+          rpc.withSuccessHandler(rawJson => {
             applyMaestroItems_(rawJson);
             setUiCacheData_('maestro', normalizeMaestroRows_(rawJson));
             syncCobroCatalogCacheFromModules_();
@@ -11376,7 +11546,7 @@
           }).adminGetMaestroItemsJson(usuarioSesion?.email || '');
         }).withFailureHandler(err => {
           console.error('Error cargando maestro:', err);
-          google.script.run.withSuccessHandler(rawJson => {
+          rpc.withSuccessHandler(rawJson => {
             applyMaestroItems_(rawJson);
             setUiCacheData_('maestro', normalizeMaestroRows_(rawJson));
             syncCobroCatalogCacheFromModules_();
@@ -11530,7 +11700,7 @@
       // =========================
       function ensureEtapasLoaded(cb) {
         if (etapasCobro && etapasCobro.length) return cb && cb();
-        google.script.run.withSuccessHandler(arr => {
+        rpc.withSuccessHandler(arr => {
           etapasCobro = arr || [];
           cb && cb();
         }).getEtapasCobro();
@@ -12083,7 +12253,7 @@
       }
 
       function refreshGestionResumen() {
-        google.script.run.withSuccessHandler(kpi => {
+        rpc.withSuccessHandler(kpi => {
           applyGestionResumen(kpi || {});
         }).getGestionResumen(usuarioSesion?.email || '');
       }
@@ -12147,7 +12317,7 @@
           return;
         }
 
-        google.script.run
+        rpc
           .withSuccessHandler(payload => {
             if (reqId !== gestionLoadSeq) return;
             if (payload?.error) {
@@ -12298,7 +12468,7 @@
         const runChange = (customCfg) => {
           mostrarLoading(true);
           const sendCfg = Object.assign({}, customCfg || {}, { actorCtx: buildActorCtx('gestion', { action: 'cambiar_etapa' }) });
-          google.script.run.withSuccessHandler(resp => {
+          rpc.withSuccessHandler(resp => {
             mostrarLoading(false);
             if (!resp || !resp.success) {
               if (resp?.requiresApproval) {
@@ -12444,7 +12614,7 @@
         if (!rr.isConfirmed) return;
 
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (!r || !r.success) {
             Swal.fire('Error', r?.message || 'No se pudo eliminar.', 'error');
@@ -12486,7 +12656,7 @@
         const responsable = String(rr.value || '').trim();
         if (!responsable) return;
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (!r || !r.success) {
             Swal.fire('Error', r?.message || 'No se pudo actualizar', 'error');
@@ -12510,7 +12680,7 @@
         const motivo = String(rr.value || '').trim();
         if (!motivo) return;
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (!r || !r.success) {
             Swal.fire('Error', r?.message || 'No se pudo marcar observado', 'error');
@@ -12534,7 +12704,7 @@
         const ids = getSelectedGestionIds();
         if (!ids.length) return Swal.fire('Atención', 'Seleccione al menos un registro.', 'warning');
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (!r || !r.success) {
             Swal.fire('Error', r?.message || 'No se pudo generar ZIP', 'error');
@@ -12561,7 +12731,7 @@
 
       function verTimelineCobro(id) {
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(rows => {
+        rpc.withSuccessHandler(rows => {
           mostrarLoading(false);
           document.getElementById('timelineTitle').innerText = `ID: ${id}`;
           const box = document.getElementById('timelineBody');
@@ -12592,7 +12762,7 @@
 
       function abrirAprobacionesCriticas() {
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(rows => {
+        rpc.withSuccessHandler(rows => {
           mostrarLoading(false);
           const tb = document.getElementById('aprobacionesBody');
           tb.innerHTML = '';
@@ -12631,7 +12801,7 @@
         });
         if (rr.dismiss) return;
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (!r || !r.success) {
             Swal.fire('Error', r?.message || 'No se pudo resolver solicitud', 'error');
@@ -13032,7 +13202,7 @@
         modalFooter.style.display = 'none';
         modalFlowEl.show();
 
-        google.script.run
+        rpc
           .withSuccessHandler(r => {
             modalBody.innerHTML = originalBody;
             modalFooter.innerHTML = originalFooter;
@@ -13152,7 +13322,7 @@
             : String(file.type || '');
           const raw = String(reader.result || '');
           const base64 = raw.indexOf(',') >= 0 ? raw.split(',')[1] : raw;
-          google.script.run
+          rpc
             .withSuccessHandler(r => {
               togglePdfUploadUi_(btnEl, labelId, false);
               if (!r || !r.success) {
@@ -13207,7 +13377,7 @@
           updates[k] = String(el.value || '').trim();
         });
         toggleSaveSpinner(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           toggleSaveSpinner(false);
           if (!r || !r.success) {
             showFlowToast('error', r?.message || 'No se pudo guardar');
@@ -13225,6 +13395,9 @@
           if (r.autoMove?.moved || r.autoClosed) {
             abrirFlowModal(id);
           }
+        }).withFailureHandler(err => {
+          toggleSaveSpinner(false);
+          showFlowToast('error', getRunErrorMsg(err, 'No se pudo guardar'));
         }).updateCobroCampos(id, updates, usuarioSesion?.email || '', buildActorCtx('gestion', { action: 'update_campos_flow' }));
       }
 
@@ -13250,7 +13423,7 @@
 
         const etapa2 = String((etapasCobro && etapasCobro[1]) || '2. Firma boleta pendiente');
         mostrarLoading(true);
-        google.script.run
+        rpc
           .withSuccessHandler(r => {
             mostrarLoading(false);
             if (!r || !r.success) {
@@ -13274,7 +13447,7 @@
         if (!id) return;
         if (!motivo) return Swal.fire('Atención', 'Ingrese el motivo de observación.', 'warning');
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (!r || !r.success) {
             showFlowToast('error', r?.message || 'No se pudo marcar observado');
@@ -13297,7 +13470,7 @@
           const ctx = buildActorCtx('gestion', { action: 'revertir_observado' });
           if (approvalId) ctx.approvalId = approvalId;
           mostrarLoading(true);
-          google.script.run.withSuccessHandler(r => {
+          rpc.withSuccessHandler(r => {
             mostrarLoading(false);
             if (!r || !r.success) {
               if (r?.requiresApproval) {
@@ -13356,7 +13529,7 @@
         }
         modalAnularEl.hide();
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (!r || !r.success) {
             showFlowToast('error', r?.message || 'No se pudo anular la boleta');
@@ -13505,7 +13678,7 @@
         }
 
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(data => {
+        rpc.withSuccessHandler(data => {
           mostrarLoading(false);
           if (data && !Array.isArray(data) && data.error) {
             resetReporteResumen();
@@ -13532,7 +13705,7 @@
         }).then(r => {
           if (!r.isConfirmed) return;
           mostrarLoading(true);
-          google.script.run.withSuccessHandler(res => {
+          rpc.withSuccessHandler(res => {
             mostrarLoading(false);
             if (!res?.success && !res?.message) {
               Swal.fire('Error', 'No se pudo ejecutar el resumen diario.', 'error');
@@ -13556,7 +13729,7 @@
 
       function instalarTriggerSlaDiario() {
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(res => {
+        rpc.withSuccessHandler(res => {
           mostrarLoading(false);
           if (!res?.success) {
             Swal.fire('Error', res?.message || 'No se pudo instalar el trigger diario.', 'error');
@@ -13681,7 +13854,7 @@
           renderTableState_(tb, 6, 'Cargando...', 'loading');
         }
         if (hasCached && !force && isUiCacheFresh_('usuarios')) return;
-        google.script.run.withSuccessHandler(users => {
+        rpc.withSuccessHandler(users => {
           const list = normalizeUserRows_(users);
           setUiCacheData_('usuarios', list);
           renderUsuarios_(list);
@@ -13734,7 +13907,7 @@
         if (!obj.email || !obj.countryCode || (!isEdit && !obj.password)) return Swal.fire('Error', 'Complete datos', 'error');
 
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (r.success) {
             modalUserEl.hide();
@@ -13752,7 +13925,7 @@
         }).then((res) => {
           if (res.isConfirmed) {
             mostrarLoading(true);
-            google.script.run.withSuccessHandler(() => {
+            rpc.withSuccessHandler(() => {
               mostrarLoading(false);
               cargarUsuarios(true);
             }).adminDeleteUser(row);
@@ -13781,7 +13954,7 @@
         const hasCached = hasUiCacheData_('proveedores');
         if (hasCached) applyRows(cached);
         if (hasCached && !force && isUiCacheFresh_('proveedores')) return;
-        google.script.run.withSuccessHandler(rows => {
+        rpc.withSuccessHandler(rows => {
           const proveedores = normalizeProviderRows_(rows);
           setUiCacheData_('proveedores', proveedores);
           syncCobroCatalogCacheFromModules_();
@@ -13830,7 +14003,7 @@
           renderTableState_(tb, 4, 'Cargando...', 'loading');
         }
         if (hasCached && !force && isUiCacheFresh_('proveedores')) return;
-        google.script.run.withSuccessHandler(rows => {
+        rpc.withSuccessHandler(rows => {
           const proveedores = normalizeProviderRows_(rows);
           setUiCacheData_('proveedores', proveedores);
           renderProveedores_(proveedores);
@@ -13876,7 +14049,7 @@
         }
 
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (r && r.success) {
             modalProviderEl.hide();
@@ -13896,7 +14069,7 @@
         }).then((res) => {
           if (!res.isConfirmed) return;
           mostrarLoading(true);
-          google.script.run.withSuccessHandler(r => {
+          rpc.withSuccessHandler(r => {
             mostrarLoading(false);
             if (r && r.success) {
               clearUiCache_('catalogosCobro');
@@ -13920,7 +14093,7 @@
           itemsMaestro = items.filter(item => item && item.activo);
           if (!force && isUiCacheFresh_('maestro')) return;
         }
-        google.script.run.withSuccessHandler(rows => {
+        rpc.withSuccessHandler(rows => {
           const items = normalizeMaestroRows_(rows);
           if (items.length) {
             setUiCacheData_('maestro', items);
@@ -13928,7 +14101,7 @@
             itemsMaestro = items.filter(item => item && item.activo);
             return;
           }
-          google.script.run.withSuccessHandler(rawJson => {
+          rpc.withSuccessHandler(rawJson => {
             const parsed = normalizeMaestroRows_(rawJson);
             setUiCacheData_('maestro', parsed);
             syncCobroCatalogCacheFromModules_();
@@ -14419,7 +14592,7 @@
         if (!rr.isConfirmed) return;
 
         mostrarLoading(true, { message: 'Importando tabla maestro...' });
-        google.script.run
+        rpc
           .withSuccessHandler(r => {
             mostrarLoading(false);
             if (!r || !r.success) {
@@ -14484,7 +14657,7 @@
           renderTableState_(tb, 8, 'Cargando...', 'loading');
         }
         if (hasCached && !force && isUiCacheFresh_('maestro')) return;
-        google.script.run.withSuccessHandler(rows => {
+        rpc.withSuccessHandler(rows => {
           const items = normalizeMaestroRows_(rows);
           if (items.length) {
             setUiCacheData_('maestro', items);
@@ -14492,12 +14665,12 @@
             renderMaestroRows_(tb, items);
             return;
           }
-          google.script.run.withSuccessHandler(rawJson => {
+          rpc.withSuccessHandler(rawJson => {
             const parsed = normalizeMaestroRows_(rawJson);
             setUiCacheData_('maestro', parsed);
             itemsMaestro = parsed.filter(item => item && item.activo);
             if (renderMaestroRows_(tb, parsed)) return;
-            google.script.run.withSuccessHandler(diag => {
+            rpc.withSuccessHandler(diag => {
               const info = diag && diag.ok
                 ? `Libro: ${escapeHtmlUi(diag.spreadsheetName || '-')} | Hoja: ${escapeHtmlUi(diag.sheetName || '-')} | Filas: ${Number(diag.lastRow || 0)} | Mapeadas: ${Number(diag.mappedCount || 0)} | Crudas: ${Number(diag.rawCount || 0)}`
                 : 'Sin items registrados en la tabla maestro';
@@ -14562,7 +14735,7 @@
         }
 
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (r && r.success) {
             modalMaestroEl.hide();
@@ -14586,7 +14759,7 @@
         }).then((res) => {
           if (!res.isConfirmed) return;
           mostrarLoading(true);
-          google.script.run.withSuccessHandler(r => {
+          rpc.withSuccessHandler(r => {
             mostrarLoading(false);
             if (r && r.success) {
               clearUiCache_('catalogosCobro');
@@ -14601,7 +14774,7 @@
       }
 
       function toggleMaestroActivo(row, checked, el) {
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           if (r && r.success) {
             clearUiCache_('catalogosCobro');
             recargarItemsMaestroUi(true);
@@ -14622,7 +14795,7 @@
         }).then((res) => {
           if (!res.isConfirmed) return;
           mostrarLoading(true);
-          google.script.run.withSuccessHandler(r => {
+          rpc.withSuccessHandler(r => {
             mostrarLoading(false);
             if (r && r.success) {
               clearUiCache_('catalogosCobro');
@@ -14657,7 +14830,7 @@
         const hasCached = hasUiCacheData_('pilotos');
         if (hasCached) applyRows(cached);
         if (hasCached && !force && isUiCacheFresh_('pilotos')) return;
-        google.script.run.withSuccessHandler(rows => {
+        rpc.withSuccessHandler(rows => {
           const pilotos = normalizePilotRows_(rows);
           setUiCacheData_('pilotos', pilotos);
           syncCobroCatalogCacheFromModules_();
@@ -14704,7 +14877,7 @@
           renderTableState_(tb, 3, 'Cargando...', 'loading');
         }
         if (hasCached && !force && isUiCacheFresh_('pilotos')) return;
-        google.script.run.withSuccessHandler(rows => {
+        rpc.withSuccessHandler(rows => {
           const pilotos = normalizePilotRows_(rows);
           setUiCacheData_('pilotos', pilotos);
           renderPilotos_(pilotos);
@@ -14748,7 +14921,7 @@
         }
 
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (r && r.success) {
             modalPilotEl.hide();
@@ -14768,7 +14941,7 @@
         }).then((res) => {
           if (!res.isConfirmed) return;
           mostrarLoading(true);
-          google.script.run.withSuccessHandler(r => {
+          rpc.withSuccessHandler(r => {
             mostrarLoading(false);
             if (r && r.success) {
               clearUiCache_('catalogosCobro');
@@ -14858,7 +15031,7 @@
         cfgRulesLoadingActive = true;
         const reqId = ++cfgRulesLoadSeq;
         mostrarLoading(true, { message: 'Cargando configuración de reglas...' });
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           if (reqId !== cfgRulesLoadSeq) return;
           cfgRulesLoadingActive = false;
           mostrarLoading(false);
@@ -15402,7 +15575,7 @@
         if (cfgCorreoUsersLoading) return;
         cfgCorreoUsersLoading = true;
 
-        google.script.run.withSuccessHandler(users => {
+        rpc.withSuccessHandler(users => {
           cfgCorreoUsersLoading = false;
           const list = normalizeUserRows_(users);
           setUiCacheData_('usuarios', list);
@@ -15505,7 +15678,7 @@
           return;
         }
         mostrarLoading(true, { message: 'Guardando destinatarios...' });
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (!r || !r.success) {
             Swal.fire('Error', r?.message || 'No se pudo guardar el destinatario.', 'error');
@@ -15546,7 +15719,7 @@
           return;
         }
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (!r || !r.success) {
             Swal.fire('Error', r?.message || 'No se pudo actualizar el estado.', 'error');
@@ -15573,7 +15746,7 @@
         }).then(res => {
           if (!res.isConfirmed) return;
           mostrarLoading(true);
-          google.script.run.withSuccessHandler(r => {
+          rpc.withSuccessHandler(r => {
             mostrarLoading(false);
             if (!r || !r.success) {
               Swal.fire('Error', r?.message || 'No se pudo eliminar el destinatario.', 'error');
@@ -15651,7 +15824,7 @@
           return;
         }
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (!r || !r.success) {
             Swal.fire('Error', r?.message || 'No se pudo guardar la clave.', 'error');
@@ -15673,7 +15846,7 @@
         }).then(res => {
           if (!res.isConfirmed) return;
           mostrarLoading(true);
-          google.script.run.withSuccessHandler(r => {
+          rpc.withSuccessHandler(r => {
             mostrarLoading(false);
             if (!r || !r.success) {
               Swal.fire('Error', r?.message || 'No se pudo eliminar la clave.', 'error');
@@ -15695,7 +15868,7 @@
           clearApiKey: document.getElementById('cfgMailClearApiKey')?.checked
         };
         mostrarLoading(true, { message: 'Guardando configuración de Resend...' });
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (!r || !r.success) {
             Swal.fire('Error', r?.message || 'No se pudo guardar la configuración de correo.', 'error');
@@ -15714,7 +15887,7 @@
 
       function validarCfgMailTransport() {
         mostrarLoading(true, { message: 'Validando conexión con Resend...' });
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (r && typeof r.mailTransport === 'object') {
             cfgRulesDataCache.mailTransport = r.mailTransport;
@@ -15736,7 +15909,7 @@
           return;
         }
         mostrarLoading(true, { message: 'Enviando correo de prueba por Resend...' });
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (r && typeof r.mailTransport === 'object') {
             cfgRulesDataCache.mailTransport = r.mailTransport;
@@ -15800,7 +15973,7 @@
           return;
         }
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (!r || !r.success) {
             Swal.fire('Error', r?.message || 'No se pudo guardar país.', 'error');
@@ -15821,7 +15994,7 @@
         }).then(res => {
           if (!res.isConfirmed) return;
           mostrarLoading(true);
-          google.script.run.withSuccessHandler(r => {
+          rpc.withSuccessHandler(r => {
             mostrarLoading(false);
             if (!r || !r.success) {
               Swal.fire('Error', r?.message || 'No se pudo eliminar país.', 'error');
@@ -15870,7 +16043,7 @@
           return;
         }
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (!r || !r.success) {
             Swal.fire('Error', r?.message || 'No se pudo guardar rol.', 'error');
@@ -15891,7 +16064,7 @@
         }).then(res => {
           if (!res.isConfirmed) return;
           mostrarLoading(true);
-          google.script.run.withSuccessHandler(r => {
+          rpc.withSuccessHandler(r => {
             mostrarLoading(false);
             if (!r || !r.success) {
               Swal.fire('Error', r?.message || 'No se pudo eliminar rol.', 'error');
@@ -15962,7 +16135,7 @@
           return;
         }
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (!r || !r.success) {
             Swal.fire('Error', r?.message || 'No se pudo guardar el SLA.', 'error');
@@ -16039,7 +16212,7 @@
           return;
         }
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (!r || !r.success) {
             Swal.fire('Error', r?.message || 'No se pudo guardar la configuración.', 'error');
@@ -16127,7 +16300,7 @@
           return;
         }
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(r => {
+        rpc.withSuccessHandler(r => {
           mostrarLoading(false);
           if (!r || !r.success) {
             Swal.fire('Error', r?.message || 'No se pudo guardar la regla.', 'error');
@@ -16148,7 +16321,7 @@
         }).then(res => {
           if (!res.isConfirmed) return;
           mostrarLoading(true);
-          google.script.run.withSuccessHandler(r => {
+          rpc.withSuccessHandler(r => {
             mostrarLoading(false);
             if (!r || !r.success) {
               Swal.fire('Error', r?.message || 'No se pudo eliminar regla.', 'error');
@@ -16615,12 +16788,12 @@
       }
 
       function cargarKPIs(force) {
-        if (!google || !google.script || !google.script.run) return;
+        if (!rpc) return;
         const cached = getUiCacheData_('dashboard');
         const hasCached = hasUiCacheData_('dashboard');
         if (hasCached) applyDashboardStats_(cached);
         if (hasCached && !force && isUiCacheFresh_('dashboard', DASHBOARD_CACHE_STALE_MS)) return;
-        google.script.run
+        rpc
           .withSuccessHandler(stats => {
             if (stats?.error) {
               console.error('Error cargando métricas del dashboard:', stats?.message || stats);
@@ -16684,7 +16857,7 @@
           renderTableState_(tb, 7, 'Cargando...', 'loading');
         }
         if (hasCached && !force && isUiCacheFresh_('historial', HISTORIAL_CACHE_STALE_MS)) return;
-        google.script.run.withSuccessHandler(rows => {
+        rpc.withSuccessHandler(rows => {
           const list = Array.isArray(rows) ? rows : [];
           setUiCacheData_('historial', list);
           renderHistorial_(list);
@@ -16697,7 +16870,7 @@
 
       function abrirCarpetaPdf() {
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(url => {
+        rpc.withSuccessHandler(url => {
           mostrarLoading(false);
           if (url) window.open(url, '_blank');
         }).getPdfRootUrl();
@@ -16731,7 +16904,7 @@
 
       function verInfoCarpetaPdf() {
         mostrarLoading(true);
-        google.script.run.withSuccessHandler(meta => {
+        rpc.withSuccessHandler(meta => {
           mostrarLoading(false);
           const folderId = String(meta?.id || '').trim();
           const folderUrl = String(meta?.url || '').trim();
@@ -16837,6 +17010,67 @@
         if (!itemsMaestro.length) recargarCatalogosCobro(true);
       });
 
+      function queueCobroCatalogReloadForSearch_() {
+        if (queueCobroCatalogReloadForSearch_._pending) return;
+        queueCobroCatalogReloadForSearch_._pending = true;
+        recargarCatalogosCobro(true);
+        setTimeout(() => {
+          queueCobroCatalogReloadForSearch_._pending = false;
+        }, 1500);
+      }
+
+      function refreshItemSearchResults_(forceReloadIfEmpty = true) {
+        if (!si || !res) return;
+
+        const q = String(si.value || '').trim().toLowerCase();
+        res.innerHTML = '';
+        if (q.length < 2) {
+          res.style.display = 'none';
+          return;
+        }
+
+        if (q.length >= 4 && /^[a-z0-9\-]+$/i.test(q)) {
+          if (tryAutoPickByCode(si.value)) return;
+        }
+
+        if (!itemsMaestro.length) {
+          res.innerHTML = '<div class="list-group-item text-muted small">Cargando productos...</div>';
+          res.style.display = 'block';
+          if (forceReloadIfEmpty) queueCobroCatalogReloadForSearch_();
+          return;
+        }
+
+        const found = itemsMaestro
+          .filter(i =>
+            (i.descripcion || '').toLowerCase().includes(q) ||
+            String(i.codigo || '').includes(q) ||
+            String(i.ean || '').includes(q)
+          )
+          .slice(0, 10);
+
+        if (!found.length) {
+          res.innerHTML = '<div class="list-group-item text-muted small">Sin coincidencias en maestro.</div>';
+          res.style.display = 'block';
+          return;
+        }
+
+        found.forEach(i => {
+          const a = document.createElement('button');
+          a.type = 'button';
+          a.className = 'list-group-item list-group-item-action';
+          a.innerHTML = `<strong>${i.descripcion}</strong> <small>(${i.codigo})</small>`;
+          a.onclick = () => {
+            si.value = i.descripcion;
+            document.getElementById('itemCodigo').value = i.codigo;
+            document.getElementById('itemPrecio').value = i.precio ?? '';
+            res.style.display = 'none';
+            document.getElementById('itemCant').focus();
+          };
+          res.appendChild(a);
+        });
+        res.style.display = 'block';
+      }
+
       function tryAutoPickByCode(raw) {
         const code = String(raw || '').trim();
         if (!code) return false;
@@ -16852,28 +17086,7 @@
       }
 
       si.addEventListener('input', function () {
-        const q = (this.value || '').toLowerCase();
-        res.innerHTML = '';
-        if (q.length < 2) { res.style.display = 'none'; return; }
-        if (q.length >= 4 && /^[a-z0-9\-]+$/i.test(q)) { if (tryAutoPickByCode(this.value)) return; }
-
-        const f = itemsMaestro.filter(i => (i.descripcion || '').toLowerCase().includes(q) || String(i.codigo || '').includes(q) || String(i.ean || '').includes(q)).slice(0, 10);
-        if (f.length > 0) {
-          f.forEach(i => {
-            const a = document.createElement('button');
-            a.type = 'button'; a.className = 'list-group-item list-group-item-action';
-            a.innerHTML = `<strong>${i.descripcion}</strong> <small>(${i.codigo})</small>`;
-            a.onclick = () => {
-              si.value = i.descripcion;
-              document.getElementById('itemCodigo').value = i.codigo;
-              document.getElementById('itemPrecio').value = i.precio ?? '';
-              res.style.display = 'none';
-              document.getElementById('itemCant').focus();
-            };
-            res.appendChild(a);
-          });
-          res.style.display = 'block';
-        } else { res.style.display = 'none'; }
+        refreshItemSearchResults_(true);
       });
 
       function agregarItem() {
@@ -17096,7 +17309,7 @@
             firmaPiloto: (!padPiloto || padPiloto.isEmpty()) ? null : padPiloto.toDataURL(),
             firmaVista: (!padVista || padVista.isEmpty()) ? null : padVista.toDataURL()
           };
-          google.script.run.withSuccessHandler(r => {
+          rpc.withSuccessHandler(r => {
             mostrarLoading(false);
             if (r.status === 'success') {
               Swal.fire({ icon: 'success', title: 'Registrado', text: 'ID: ' + r.id }).then(() => {
@@ -17116,4 +17329,5 @@
 </body>
 
 </html>
+
 
