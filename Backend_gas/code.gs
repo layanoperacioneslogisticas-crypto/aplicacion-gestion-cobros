@@ -4922,12 +4922,23 @@ function rowDate_(row, headerMap, names) {
 
 function writeRowFields_(sh, rowNum, headerMap, updates) {
     const keys = Object.keys(updates || {});
+    if (!keys.length) return;
+
+    const lastCol = sh.getLastColumn ? sh.getLastColumn() : Object.keys(headerMap).length;
+    const range = sh.getRange(rowNum, 1, 1, lastCol);
+    const rowValues = (range.getValues()[0] || []).slice();
+
+    let modified = false;
     for (let i = 0; i < keys.length; i++) {
         const header = keys[i];
         const idx = headerMap[normalizeKey_(header)];
         if (idx == null) continue;
-        sh.getRange(rowNum, idx + 1).setValue(updates[header]);
+        rowValues[idx] = updates[header];
+        modified = true;
     }
+
+    if (!modified) return;
+    range.setValues([rowValues]);
 }
 
 function applyRowUpdatesToRow_(row, headerMap, updates) {
@@ -8742,10 +8753,6 @@ function updateCobroEtapa(id, nuevaEtapa, actorEmail, opts) {
     }
 
     const estadoOk = macroEstadoPorEtapaIdx_(toIdx);
-    sh.getRange(row, COL_ETAPA).setValue(etapaOk);
-    sh.getRange(row, COL_ULT_ACT).setValue(now);
-    sh.getRange(row, COL_ESTADO).setValue(estadoOk);
-
     const extraUpdates = {};
     extraUpdates[WF.areaResponsableActual] = areaResponsablePorEtapa_(toIdx);
     if (estadoActual === 'Observado') {
@@ -8754,9 +8761,20 @@ function updateCobroEtapa(id, nuevaEtapa, actorEmail, opts) {
     }
     const stageSlaUpdates = buildStageSlaEntryFields_(toIdx, now);
     Object.keys(stageSlaUpdates).forEach(k => extraUpdates[k] = stageSlaUpdates[k]);
-    writeRowFields_(sh, row, headerMap, extraUpdates);
 
-    applyRowUpdatesToRow_(rowData, headerMap, extraUpdates);
+    const rowValues = rowData.slice();
+    rowValues[COL_ETAPA - 1] = etapaOk;
+    rowValues[COL_ULT_ACT - 1] = now;
+    rowValues[COL_ESTADO - 1] = estadoOk;
+
+    Object.keys(extraUpdates).forEach((header) => {
+        const idx = headerMap[normalizeKey_(header)];
+        if (idx == null) return;
+        rowValues[idx] = extraUpdates[header];
+    });
+
+    sh.getRange(row, 1, 1, lastCol).setValues([rowValues]);
+    rowData = rowValues;
     const diff = buildFieldDiff_(rowBefore, rowData, headerMap, [
         'Etapa', 'Estado', WF.areaResponsableActual, WF.motivoObservacion, WF.etapaAnterior, WF.fechaIngresoEtapaActual, WF.fechaLimiteSlaActual, WF.fechaLimiteFirmaBoleta, WF.fechaLimiteFirmaFactura
     ]);
