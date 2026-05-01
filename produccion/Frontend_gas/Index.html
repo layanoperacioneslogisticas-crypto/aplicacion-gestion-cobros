@@ -8047,6 +8047,7 @@
               <th>Código</th>
               <th>Nombre</th>
               <th>Email</th>
+              <th>Activo</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -8765,6 +8766,10 @@
             <div class="mb-2">
               <label class="form-label small fw-bold">Email (opcional)</label>
               <input type="email" class="form-control" id="prEmail" placeholder="correo@proveedor.com">
+            </div>
+            <div class="form-check form-switch mt-3">
+              <input class="form-check-input" type="checkbox" id="prActivo" checked>
+              <label class="form-check-label" for="prActivo">Proveedor activo</label>
             </div>
           </form>
         </div>
@@ -9891,6 +9896,7 @@
         adminGetProveedores: (args) => ({ method: 'GET', path: '/api/admin/providers', query: { actorEmail: args[0] || '' } }),
         adminSaveProvider: (args) => ({ method: 'POST', path: '/api/admin/providers', body: { provider: args[0] || {}, actorEmail: args[1] || '' } }),
         adminDeleteProvider: (args) => ({ method: 'DELETE', path: '/api/admin/providers/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
+        adminToggleProviderActivo: (args) => ({ method: 'POST', path: '/api/admin/providers/' + encodeURIComponent(String(args[0] || '')) + '/toggle-active', body: { active: !!args[1], actorEmail: args[2] || '' } }),
         adminGetPilotos: (args) => ({ method: 'GET', path: '/api/admin/pilots', query: { actorEmail: args[0] || '' } }),
         adminSavePilot: (args) => ({ method: 'POST', path: '/api/admin/pilots', body: { pilot: args[0] || {}, actorEmail: args[1] || '' } }),
         adminDeletePilot: (args) => ({ method: 'DELETE', path: '/api/admin/pilots/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
@@ -14191,7 +14197,7 @@
         if (!sp) return;
         const selected = String(sp.value || '');
         const applyRows = rows => {
-          const proveedores = normalizeProviderRows_(rows);
+          const proveedores = normalizeProviderRows_(rows).filter(p => p.activo);
           sp.innerHTML = '<option value="">Seleccione...</option>';
           proveedores.forEach(p => {
             const value = String(p.codigo || p.nombre || '').trim();
@@ -14220,7 +14226,7 @@
         const proveedores = filterProveedoresRows_(rows);
         if (!proveedores.length) {
           const query = getProveedoresSearchQuery_();
-          renderTableState_(tb, 4, query ? 'No se encontraron proveedores con esa búsqueda' : 'Sin proveedores registrados', 'muted');
+          renderTableState_(tb, 5, query ? 'No se encontraron proveedores con esa búsqueda' : 'Sin proveedores registrados', 'muted');
           return;
         }
         tb.innerHTML = proveedores.map(p => {
@@ -14228,13 +14234,19 @@
             row: p.row,
             codigo: p.codigo,
             nombre: p.nombre,
-            email: p.email
+            email: p.email,
+            activo: p.activo
           })).replace(/'/g, '%27');
           return `
             <tr>
               <td>${escapeHtmlUi(p.codigo || '-')}</td>
               <td>${escapeHtmlUi(p.nombre || '-')}</td>
               <td><small>${escapeHtmlUi(p.email || '-')}</small></td>
+              <td class="text-center">
+                <div class="form-check form-switch d-inline-flex justify-content-center m-0">
+                  <input class="form-check-input" type="checkbox" ${p.activo ? 'checked' : ''} onchange="toggleProveedorActivo(${Number(p.row || 0)}, this.checked, this)">
+                </div>
+              </td>
               <td>
                 <button class="btn btn-sm btn-outline-primary" onclick="editarProveedorCod('${payload}')"><i class="bi bi-pencil"></i></button>
                 <button class="btn btn-sm btn-outline-danger" onclick="borrarProveedor(${Number(p.row || 0)})"><i class="bi bi-trash"></i></button>
@@ -14251,7 +14263,7 @@
         if (hasCached) {
           renderProveedores_(cached);
         } else {
-          renderTableState_(tb, 4, 'Cargando...', 'loading');
+          renderTableState_(tb, 5, 'Cargando...', 'loading');
         }
         if (hasCached && !force && isUiCacheFresh_('proveedores')) return;
         rpc.withSuccessHandler(rows => {
@@ -14261,13 +14273,14 @@
         }).withFailureHandler(err => {
           console.error('Error cargando proveedores:', err);
           if (hasCached) return;
-          renderTableState_(tb, 4, 'No se pudo cargar la lista de proveedores.', 'error');
+          renderTableState_(tb, 5, 'No se pudo cargar la lista de proveedores.', 'error');
         }).adminGetProveedores(usuarioSesion?.email || '');
       }
 
       function modalProveedor() {
         document.getElementById('formProvider').reset();
         document.getElementById('prRow').value = '';
+        document.getElementById('prActivo').checked = true;
         modalProviderEl.show();
       }
 
@@ -14276,6 +14289,7 @@
         document.getElementById('prCodigo').value = p.codigo || '';
         document.getElementById('prNombre').value = p.nombre || '';
         document.getElementById('prEmail').value = p.email || '';
+        document.getElementById('prActivo').checked = parseLooseBoolUi_(p.activo, true);
         modalProviderEl.show();
       }
 
@@ -14293,7 +14307,8 @@
           row: document.getElementById('prRow').value,
           codigo: document.getElementById('prCodigo').value.trim(),
           nombre: document.getElementById('prNombre').value.trim(),
-          email: document.getElementById('prEmail').value.trim()
+          email: document.getElementById('prEmail').value.trim(),
+          activo: document.getElementById('prActivo').checked
         };
         if (!obj.codigo || !obj.nombre) {
           return Swal.fire('Error', 'Complete código y nombre.', 'error');
@@ -14335,6 +14350,29 @@
             Swal.fire('Error', getRunErrorMsg(err, 'No se pudo borrar el proveedor.'), 'error');
           }).adminDeleteProvider(row, usuarioSesion?.email || '');
         });
+      }
+
+      function toggleProveedorActivo(row, checked, el) {
+        const input = el || null;
+        if (input) input.disabled = true;
+        rpc.withSuccessHandler(r => {
+          if (input) input.disabled = false;
+          if (r && r.success) {
+            clearUiCache_('catalogosCobro');
+            cargarProveedores(true);
+            recargarProveedoresSelect(true);
+            showUiToast('info', checked ? 'Proveedor habilitado.' : 'Proveedor inhabilitado.');
+          } else {
+            if (input) input.checked = !checked;
+            Swal.fire('Error', r?.message || 'No se pudo actualizar el proveedor.', 'error');
+          }
+        }).withFailureHandler(err => {
+          if (input) {
+            input.disabled = false;
+            input.checked = !checked;
+          }
+          Swal.fire('Error', getRunErrorMsg(err, 'No se pudo actualizar el proveedor.'), 'error');
+        }).adminToggleProviderActivo(row, checked, usuarioSesion?.email || '');
       }
 
       // =========================
@@ -14426,11 +14464,13 @@
 
       function sanitizeProviderRow_(item) {
         if (!item || typeof item !== 'object') return null;
+        const activeRaw = item.activo ?? item.active ?? item.Activo;
         return {
           row: Number(item.row || 0),
           codigo: String(item.codigo || item.Codigo || item.proveedorCodigo || '').trim(),
           nombre: String(item.nombre || item.Nombre || item.proveedorNombre || item.proveedor || '').trim(),
           email: String(item.email || item.correo || item.Email || item.Correo || '').trim(),
+          activo: activeRaw == null ? true : (activeRaw === true || String(activeRaw).toLowerCase() === 'true' || String(activeRaw) === '1'),
           countryCode: String(item.countryCode || item.CountryCode || '').trim().toUpperCase()
         };
       }

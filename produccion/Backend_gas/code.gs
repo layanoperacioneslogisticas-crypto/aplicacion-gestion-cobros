@@ -126,7 +126,7 @@ const AREA = {
     PROVEEDOR_SEG: 'Proveedor (seguimiento Transporte)'
 };
 
-const PROVEEDOR_HEADERS = ['Codigo', 'Nombre', 'Correo', 'CountryCode'];
+const PROVEEDOR_HEADERS = ['Codigo', 'Nombre', 'Correo', 'Activo', 'CountryCode'];
 const PILOTO_HEADERS = ['DNI', 'NOMBRE COMPLETO', 'CountryCode'];
 const MAESTRO_HEADERS = ['Codigo', 'Descripcion', 'uxc', 'Precio con IGV', 'Precio sin IGV', 'EAN', 'Activo', 'CountryCode'];
 const USER_SHEET_HEADERS = ['Email', 'Nombre', 'Rol', 'Password', 'Activo', 'Area', 'CountryCode'];
@@ -742,6 +742,7 @@ function buildProveedorHeaderMeta_(headers) {
         codigo: headerIdx_(map, ['Codigo', 'CÃ³digo', 'ProveedorCodigo', 'Proveedor_Codigo', 'CodProveedor']),
         nombre: headerIdx_(map, ['Nombre', 'Proveedor', 'RazonSocial', 'RazÃ³n Social', 'NombreProveedor']),
         email: headerIdx_(map, ['Correo', 'Email', 'Mail', 'CorreoElectronico', 'Correo ElectrÃ³nico']),
+        activo: headerIdx_(map, ['Activo', 'Estado', 'Habilitado', 'Enabled']),
         countryCode: headerIdx_(map, ['CountryCode', 'Pais', 'PaisCode', 'Country'])
     };
 }
@@ -808,7 +809,8 @@ function applyProveedorValuesToRow_(row, meta, values) {
     setVal('codigo', 0, values.codigo);
     setVal('nombre', 1, values.nombre);
     setVal('email', 2, values.email);
-    setVal('countryCode', 3, resolveCatalogCountryCode_(values.countryCode));
+    setVal('activo', 3, values.activo);
+    setVal('countryCode', 4, resolveCatalogCountryCode_(values.countryCode));
     return out;
 }
 
@@ -856,7 +858,8 @@ function mapProveedorRow_(row, rowNum, providerMeta) {
         codigo: String(proveedorCell_(row, meta, 'codigo', 0) || '').trim(),
         nombre: String(proveedorCell_(row, meta, 'nombre', 1) || '').trim(),
         email: String(proveedorCell_(row, meta, 'email', 2) || '').trim(),
-        countryCode: resolveCatalogCountryCode_(proveedorCell_(row, meta, 'countryCode', 3))
+        activo: parseBoolLoose_(proveedorCell_(row, meta, 'activo', 3), true),
+        countryCode: resolveCatalogCountryCode_(proveedorCell_(row, meta, 'countryCode', 4))
     };
 }
 
@@ -2806,6 +2809,17 @@ function ensureProveedoresSheet_() {
     }
 
     const meta = buildProveedorHeaderMeta_(current);
+    if (meta.activo >= 0 && sh.getLastRow() > 1) {
+        const col = meta.activo + 1;
+        const values = sh.getRange(2, col, sh.getLastRow() - 1, 1).getValues();
+        let needsFill = false;
+        for (let i = 0; i < values.length; i++) {
+            if (String(values[i][0] || '').trim()) continue;
+            values[i][0] = true;
+            needsFill = true;
+        }
+        if (needsFill) sh.getRange(2, col, values.length, 1).setValues(values);
+    }
     if (meta.countryCode >= 0 && sh.getLastRow() > 1) {
         const col = meta.countryCode + 1;
         const values = sh.getRange(2, col, sh.getLastRow() - 1, 1).getValues();
@@ -2854,6 +2868,7 @@ function adminSaveProvider(providerObj, actorEmail) {
     const codigo = String(providerObj && providerObj.codigo ? providerObj.codigo : '').trim();
     const nombre = String(providerObj && providerObj.nombre ? providerObj.nombre : '').trim();
     const email = String(providerObj && providerObj.email ? providerObj.email : '').trim();
+    const activo = parseBoolLoose_(providerObj && providerObj.activo, true);
     const requestedCountry = normalizeCountryCode_(providerObj && providerObj.countryCode);
     const countryCode = requestedCountry || actorCtx.countryCode;
 
@@ -2880,7 +2895,7 @@ function adminSaveProvider(providerObj, actorEmail) {
         }
         const lastCol = Math.max(sh.getLastColumn(), PROVEEDOR_HEADERS.length);
         const currentRowValues = sh.getRange(rowNum, 1, 1, lastCol).getValues()[0] || [];
-        const existingCountry = resolveCatalogCountryCode_(proveedorCell_(currentRowValues, providerMeta, 'countryCode', 3));
+        const existingCountry = resolveCatalogCountryCode_(proveedorCell_(currentRowValues, providerMeta, 'countryCode', 4));
         if (!actorCanAccessCatalogCountry_(actorCtx.profile, existingCountry)) {
             return { success: false, message: 'No tiene acceso a este proveedor fuera de su entorno.' };
         }
@@ -2888,6 +2903,7 @@ function adminSaveProvider(providerObj, actorEmail) {
             codigo: codigo,
             nombre: nombre,
             email: email,
+            activo: activo,
             countryCode: requestedCountry || existingCountry || actorCtx.countryCode
         });
         sh.getRange(rowNum, 1, 1, rowValues.length).setValues([rowValues]);
@@ -2896,6 +2912,7 @@ function adminSaveProvider(providerObj, actorEmail) {
             codigo: codigo,
             nombre: nombre,
             email: email,
+            activo: activo,
             countryCode: countryCode
         });
         sh.appendRow(rowValues);
@@ -2919,7 +2936,7 @@ function adminDeleteProvider(row, actorEmail) {
     const headers = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), PROVEEDOR_HEADERS.length)).getValues()[0] || [];
     const meta = buildProveedorHeaderMeta_(headers);
     const rowValues = sh.getRange(rowNum, 1, 1, headers.length).getValues()[0] || [];
-    const existingCountry = resolveCatalogCountryCode_(proveedorCell_(rowValues, meta, 'countryCode', 3));
+    const existingCountry = resolveCatalogCountryCode_(proveedorCell_(rowValues, meta, 'countryCode', 4));
     if (!actorCanAccessCatalogCountry_(actorCtx.profile, existingCountry)) {
         return { success: false, message: 'No tiene acceso a este proveedor fuera de su entorno.' };
     }
@@ -2930,6 +2947,32 @@ function adminDeleteProvider(row, actorEmail) {
     sh.deleteRow(rowNum);
     clearProviderCaches_();
     return { success: true };
+}
+
+function adminToggleProviderActivo(row, active, actorEmail) {
+    const actorCtx = resolveCatalogActorContext_(actorEmail);
+    if (!actorCtx.ok) return { success: false, message: actorCtx.message };
+
+    const sh = ensureProveedoresSheet_();
+    const rowNum = Number(row || 0);
+    if (!sh) return { success: false, message: "Hoja 'Proveedores' no encontrada." };
+    if (rowNum < 2 || rowNum > sh.getLastRow()) {
+        return { success: false, message: 'Fila de proveedor invalida.' };
+    }
+
+    const activo = parseBoolLoose_(active, true);
+    const headers = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), PROVEEDOR_HEADERS.length)).getValues()[0] || [];
+    const meta = buildProveedorHeaderMeta_(headers);
+    const rowValues = sh.getRange(rowNum, 1, 1, headers.length).getValues()[0] || [];
+    const existingCountry = resolveCatalogCountryCode_(proveedorCell_(rowValues, meta, 'countryCode', 4));
+    if (!actorCanAccessCatalogCountry_(actorCtx.profile, existingCountry)) {
+        return { success: false, message: 'No tiene acceso a este proveedor fuera de su entorno.' };
+    }
+
+    const activeCol = meta.activo >= 0 ? (meta.activo + 1) : 4;
+    sh.getRange(rowNum, activeCol).setValue(activo);
+    clearProviderCaches_();
+    return { success: true, active: activo };
 }
 
 /**

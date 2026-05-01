@@ -364,6 +364,14 @@ appApiRouter.delete('/admin/providers/:row', jsonRoute((req) => {
   ], req);
 }));
 
+appApiRouter.post('/admin/providers/:row/toggle-active', jsonRoute((req) => {
+  return invokeLegacy('adminToggleProviderActivo', [
+    optionalNumber(req.params.row, 0),
+    optionalBoolean(req.body?.active, false),
+    optionalString(req.body?.actorEmail)
+  ], req);
+}));
+
 appApiRouter.get('/admin/pilots', jsonRoute((req) => {
   refreshRuntimeCatalog(['Pilotos'], ['clearPilotCaches_']);
   return invokeLegacy('adminGetPilotos', [optionalString(req.query.actorEmail)], req);

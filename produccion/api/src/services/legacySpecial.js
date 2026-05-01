@@ -133,6 +133,7 @@ function mapProviderRecord(row) {
     codigo: String(row?.codigo || '').trim(),
     nombre: String(row?.nombre || '').trim(),
     email: String(row?.correo || '').trim(),
+    activo: row?.activo == null ? true : Boolean(row?.activo),
     countryCode: normalizeCountryCode(row?.country_code)
   };
 }
@@ -196,9 +197,10 @@ async function listFrontendCountries() {
 async function listFrontendProviders(actorCountry) {
   let query = supabaseAdmin
     .from('ct_providers')
-    .select('codigo,nombre,correo,country_code')
+    .select('codigo,nombre,correo,activo,country_code')
     .order('codigo', { ascending: true });
   if (actorCountry) query = query.eq('country_code', actorCountry);
+  query = query.eq('activo', true);
   const { data, error } = await query;
   if (error) throw error;
   return (data || []).map(mapProviderRecord);

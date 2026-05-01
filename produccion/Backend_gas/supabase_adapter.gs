@@ -234,6 +234,7 @@ function buildSupabaseSheetDefs_() {
             { header: 'Codigo', field: 'codigo', type: 'text' },
             { header: 'Nombre', field: 'nombre', type: 'text' },
             { header: 'Correo', field: 'correo', type: 'text' },
+            { header: 'Activo', field: 'activo', type: 'bool' },
             { header: 'CountryCode', field: 'country_code', type: 'text' }
         ]
     })
