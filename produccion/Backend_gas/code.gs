@@ -2674,7 +2674,7 @@ function adminSavePilot(pilotObj, actorEmail) {
     const pilotoMeta = buildPilotoHeaderMeta_(all[0] || PILOTO_HEADERS);
     for (let i = 1; i < all.length; i++) {
         const existingDni = String(pilotoCell_(all[i], pilotoMeta, 'dni', 0) || '').trim();
-        const currentRow = i + 2;
+        const currentRow = i + 1;
         if (existingDni && existingDni === dni && currentRow !== rowNum) {
             return { success: false, message: 'El DNI ya existe en la lista de pilotos.' };
         }
@@ -2868,7 +2868,7 @@ function adminSaveProvider(providerObj, actorEmail) {
     const providerMeta = buildProveedorHeaderMeta_(all[0] || PROVEEDOR_HEADERS);
     for (let i = 1; i < all.length; i++) {
         const existingCode = String(proveedorCell_(all[i], providerMeta, 'codigo', 0) || '').trim().toLowerCase();
-        const currentRow = i + 2;
+        const currentRow = i + 1;
         if (existingCode && existingCode === codigo.toLowerCase() && currentRow !== rowNum) {
             return { success: false, message: 'El codigo de proveedor ya existe.' };
         }
@@ -3090,7 +3090,7 @@ function adminSaveMaestroItem(itemObj, actorEmail) {
     const maestroMeta = buildMaestroHeaderMeta_(all[0] || MAESTRO_HEADERS);
     for (let i = 1; i < all.length; i++) {
         const existingCode = String(maestroCell_(all[i], maestroMeta, 'codigo', 0) || '').trim().toLowerCase();
-        const currentRow = i + 2;
+        const currentRow = i + 1;
         if (existingCode && existingCode === codigo.toLowerCase() && currentRow !== rowNum) {
             return { success: false, message: 'El codigo ya existe en la tabla maestro.' };
         }
