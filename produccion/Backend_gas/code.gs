@@ -3090,8 +3090,14 @@ function adminSaveMaestroItem(itemObj, actorEmail) {
     const maestroMeta = buildMaestroHeaderMeta_(all[0] || MAESTRO_HEADERS);
     for (let i = 1; i < all.length; i++) {
         const existingCode = String(maestroCell_(all[i], maestroMeta, 'codigo', 0) || '').trim().toLowerCase();
+        const existingCountry = resolveCatalogCountryCode_(maestroCell_(all[i], maestroMeta, 'countryCode', 7));
         const currentRow = i + 1;
-        if (existingCode && existingCode === codigo.toLowerCase() && currentRow !== rowNum) {
+        if (
+            existingCode &&
+            existingCode === codigo.toLowerCase() &&
+            sameCatalogCountry_(existingCountry, countryCode) &&
+            currentRow !== rowNum
+        ) {
             return { success: false, message: 'El codigo ya existe en la tabla maestro.' };
         }
     }
@@ -3159,12 +3165,14 @@ function adminImportMaestroItems(items, options, actorEmail) {
 
     for (let i = 1; i < grid.length; i++) {
         const code = String(maestroCell_(grid[i], maestroMeta, 'codigo', 0) || '').trim().toLowerCase();
+        const countryCode = resolveCatalogCountryCode_(maestroCell_(grid[i], maestroMeta, 'countryCode', 7));
+        const codeKey = `${code}::${countryCode || ''}`;
         if (!code) continue;
-        existingMap[code] = {
+        existingMap[codeKey] = {
             rowNum: i + 1,
             rowValues: grid[i],
             record: adapterRecords && adapterRecords[i - 1] ? adapterRecords[i - 1] : null,
-            countryCode: resolveCatalogCountryCode_(maestroCell_(grid[i], maestroMeta, 'countryCode', 7))
+            countryCode: countryCode
         };
     }
 
@@ -3177,9 +3185,10 @@ function adminImportMaestroItems(items, options, actorEmail) {
     for (let i = 0; i < batch.length; i++) {
         const item = sanitizeMaestroImportItem_(batch[i], i + 2);
         const sourceRow = Number(item._sourceRow || i + 2);
-        const codeKey = String(item.codigo || '').trim().toLowerCase();
+        const codeKeyBase = String(item.codigo || '').trim().toLowerCase();
         const requestedCountry = normalizeCountryCode_(item.countryCode);
         const countryCode = requestedCountry || actorCtx.countryCode;
+        const codeKey = `${codeKeyBase}::${countryCode || ''}`;
 
         const isEmptyRow = !item.codigo && !item.descripcion && !item.ean
             && Number(item.uxc || 0) === 0
