@@ -3059,7 +3059,7 @@ function adminSaveMaestroItem(itemObj, actorEmail) {
     if (!actorCtx.ok) return { success: false, message: actorCtx.message };
 
     const sh = ensureMaestroSheet_();
-    const rowNum = Number(itemObj && itemObj.row ? itemObj.row : 0);
+    const requestedRowNum = Number(itemObj && itemObj.row ? itemObj.row : 0);
     const codigo = String(itemObj && itemObj.codigo ? itemObj.codigo : '').trim();
     const descripcion = String(itemObj && itemObj.descripcion ? itemObj.descripcion : '').trim();
     const ean = String(itemObj && itemObj.ean ? itemObj.ean : '').trim();
@@ -3088,6 +3088,35 @@ function adminSaveMaestroItem(itemObj, actorEmail) {
 
     const all = sh.getDataRange().getValues();
     const maestroMeta = buildMaestroHeaderMeta_(all[0] || MAESTRO_HEADERS);
+    const sameCountryMatches = [];
+    const codeOnlyMatches = [];
+    let rowNum = requestedRowNum;
+
+    for (let i = 1; i < all.length; i++) {
+        const existingCode = String(maestroCell_(all[i], maestroMeta, 'codigo', 0) || '').trim().toLowerCase();
+        const existingCountry = resolveCatalogCountryCode_(maestroCell_(all[i], maestroMeta, 'countryCode', 7));
+        const currentRow = i + 1;
+        if (existingCode && existingCode === codigo.toLowerCase()) {
+            codeOnlyMatches.push({ rowNum: currentRow, countryCode: existingCountry });
+            if (sameCatalogCountry_(existingCountry, countryCode)) {
+                sameCountryMatches.push({ rowNum: currentRow, countryCode: existingCountry });
+            }
+        }
+    }
+
+    if (rowNum > 0 && (rowNum < 2 || rowNum > sh.getLastRow())) {
+        rowNum = 0;
+    }
+    if (rowNum <= 0 && sameCountryMatches.length === 1) {
+        rowNum = sameCountryMatches[0].rowNum;
+    }
+    if (rowNum <= 0 && sameCountryMatches.length > 1) {
+        return {
+            success: false,
+            message: 'Se encontraron multiples items con el mismo codigo en este pais. Revise los duplicados antes de editar.'
+        };
+    }
+
     for (let i = 1; i < all.length; i++) {
         const existingCode = String(maestroCell_(all[i], maestroMeta, 'codigo', 0) || '').trim().toLowerCase();
         const existingCountry = resolveCatalogCountryCode_(maestroCell_(all[i], maestroMeta, 'countryCode', 7));
@@ -3113,9 +3142,6 @@ function adminSaveMaestroItem(itemObj, actorEmail) {
         countryCode: countryCode
     };
     if (rowNum > 0) {
-        if (rowNum < 2 || rowNum > sh.getLastRow()) {
-            return { success: false, message: 'Fila de maestro invalida.' };
-        }
         const currentRowValues = sh.getRange(rowNum, 1, 1, sh.getLastColumn()).getValues()[0];
         const existingCountry = resolveCatalogCountryCode_(maestroCell_(currentRowValues, maestroMeta, 'countryCode', 7));
         if (!actorCanAccessCatalogCountry_(actorCtx.profile, existingCountry)) {
@@ -3128,6 +3154,12 @@ function adminSaveMaestroItem(itemObj, actorEmail) {
         const rowValues = applyMaestroValuesToRow_(currentRowValues, maestroMeta, valuesObj);
         sh.getRange(rowNum, 1, 1, rowValues.length).setValues([rowValues]);
     } else {
+        if (codeOnlyMatches.length > 0 && sameCountryMatches.length === 0) {
+            return {
+                success: false,
+                message: 'El codigo ya existe en otro pais. Use el item del entorno correcto o revise la configuracion del pais.'
+            };
+        }
         const rowValues = applyMaestroValuesToRow_(new Array(sh.getLastColumn()).fill(''), maestroMeta, valuesObj);
         sh.appendRow(rowValues);
     }
