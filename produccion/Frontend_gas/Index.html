@@ -7867,6 +7867,13 @@
         </div>
       </div>
 
+      <div class="d-flex justify-content-end mb-3">
+        <div class="input-group input-group-sm" style="max-width: 360px;">
+          <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+          <input type="search" class="form-control" id="buscarUsuarios" placeholder="Buscar por nombre, email, país o rol" oninput="filtrarUsuarios()">
+        </div>
+      </div>
+
       <div class="table-responsive border rounded bg-white">
         <table class="table table-sm align-middle mb-0">
           <thead class="table-light">
@@ -7897,6 +7904,13 @@
           <button class="btn btn-outline-secondary btn-sm rounded-pill" type="button" onclick="mostrarPanel()">
             <i class="bi bi-arrow-left"></i> Volver
           </button>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-end mb-3">
+        <div class="input-group input-group-sm" style="max-width: 360px;">
+          <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+          <input type="search" class="form-control" id="buscarProveedores" placeholder="Buscar por código, nombre o email" oninput="filtrarProveedores()">
         </div>
       </div>
 
@@ -7934,6 +7948,13 @@
           <button class="btn btn-outline-secondary btn-sm rounded-pill" type="button" onclick="mostrarPanel()">
             <i class="bi bi-arrow-left"></i> Volver
           </button>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-end mb-3">
+        <div class="input-group input-group-sm" style="max-width: 360px;">
+          <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+          <input type="search" class="form-control" id="buscarMaestro" placeholder="Buscar por código, descripción o EAN" oninput="filtrarMaestro()">
         </div>
       </div>
 
@@ -13832,12 +13853,45 @@
       // =========================
       // ✅ MÓDULO USUARIOS
       // =========================
+      function normalizeSearchTextUi_(value) {
+        return String(value == null ? '' : value)
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .trim();
+      }
+
+      function getUsuariosSearchQuery_() {
+        const input = document.getElementById('buscarUsuarios');
+        return normalizeSearchTextUi_(input ? input.value : '');
+      }
+
+      function filterUsuariosRows_(users) {
+        const list = normalizeUserRows_(users);
+        const query = getUsuariosSearchQuery_();
+        if (!query) return list;
+        return list.filter(u => normalizeSearchTextUi_([
+          u.nombre,
+          u.email,
+          u.countryCode,
+          u.countryName,
+          u.rol,
+          u.area,
+          u.activo ? 'activo' : 'inactivo'
+        ].join(' ')).includes(query));
+      }
+
+      function filtrarUsuarios() {
+        if (hasUiCacheData_('usuarios')) renderUsuarios_(getUiCacheData_('usuarios'));
+      }
+
       function renderUsuarios_(users) {
         const tb = document.getElementById('tablaUsuarios');
         if (!tb) return;
-        const list = normalizeUserRows_(users);
+        const list = filterUsuariosRows_(users);
         if (!list.length) {
-          renderTableState_(tb, 6, 'Sin usuarios registrados', 'muted');
+          const query = getUsuariosSearchQuery_();
+          renderTableState_(tb, 6, query ? 'No se encontraron usuarios con esa búsqueda' : 'Sin usuarios registrados', 'muted');
           return;
         }
         tb.innerHTML = list.map(u => `
@@ -13957,6 +14011,27 @@
       // =========================
       // ✅ MODULO PROVEEDORES
       // =========================
+      function getProveedoresSearchQuery_() {
+        const input = document.getElementById('buscarProveedores');
+        return normalizeSearchTextUi_(input ? input.value : '');
+      }
+
+      function filterProveedoresRows_(rows) {
+        const proveedores = normalizeProviderRows_(rows);
+        const query = getProveedoresSearchQuery_();
+        if (!query) return proveedores;
+        return proveedores.filter(p => normalizeSearchTextUi_([
+          p.codigo,
+          p.nombre,
+          p.email,
+          p.countryCode
+        ].join(' ')).includes(query));
+      }
+
+      function filtrarProveedores() {
+        if (hasUiCacheData_('proveedores')) renderProveedores_(getUiCacheData_('proveedores'));
+      }
+
       function recargarProveedoresSelect(force) {
         const sp = document.getElementById('proveedorSelect');
         if (!sp) return;
@@ -13988,9 +14063,10 @@
       function renderProveedores_(rows) {
         const tb = document.getElementById('tablaProveedores');
         if (!tb) return;
-        const proveedores = normalizeProviderRows_(rows);
+        const proveedores = filterProveedoresRows_(rows);
         if (!proveedores.length) {
-          renderTableState_(tb, 4, 'Sin proveedores registrados', 'muted');
+          const query = getProveedoresSearchQuery_();
+          renderTableState_(tb, 4, query ? 'No se encontraron proveedores con esa búsqueda' : 'Sin proveedores registrados', 'muted');
           return;
         }
         tb.innerHTML = proveedores.map(p => {
@@ -14344,8 +14420,23 @@
       }
 
       function renderMaestroRows_(tb, items) {
-        const list = normalizeMaestroRows_(items);
-        if (!list.length) return false;
+        const baseList = normalizeMaestroRows_(items);
+        const query = normalizeSearchTextUi_(document.getElementById('buscarMaestro')?.value || '');
+        const list = query
+          ? baseList.filter(item => normalizeSearchTextUi_([
+            item.codigo,
+            item.descripcion,
+            item.ean,
+            item.countryCode
+          ].join(' ')).includes(query))
+          : baseList;
+        if (!list.length) {
+          if (query) {
+            renderTableState_(tb, 8, 'No se encontraron items con esa búsqueda', 'muted');
+            return true;
+          }
+          return false;
+        }
         tb.innerHTML = list.map(item => {
           const payload = buildUiPayload_({
             row: item.row,
@@ -14377,6 +14468,12 @@
             </tr>`;
         }).join('');
         return true;
+      }
+
+      function filtrarMaestro() {
+        const tb = document.getElementById('tablaMaestro');
+        if (!tb || !hasUiCacheData_('maestro')) return;
+        renderMaestroRows_(tb, getUiCacheData_('maestro'));
       }
 
       function normalizeImportKeyUi_(value) {
