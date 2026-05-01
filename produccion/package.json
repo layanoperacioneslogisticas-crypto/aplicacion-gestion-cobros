@@ -1,0 +1,11 @@
+{
+  "name": "cobro-transporte-railway",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "postinstall": "npm --prefix api install --omit=dev",
+    "start": "npm --prefix api start"
+  }
+}
