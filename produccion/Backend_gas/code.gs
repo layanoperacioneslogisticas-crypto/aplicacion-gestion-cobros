@@ -2864,7 +2864,7 @@ function adminSaveProvider(providerObj, actorEmail) {
     if (!actorCtx.ok) return { success: false, message: actorCtx.message };
 
     const sh = ensureProveedoresSheet_();
-    const rowNum = Number(providerObj && providerObj.row ? providerObj.row : 0);
+    const requestedRowNum = Number(providerObj && providerObj.row ? providerObj.row : 0);
     const codigo = String(providerObj && providerObj.codigo ? providerObj.codigo : '').trim();
     const nombre = String(providerObj && providerObj.nombre ? providerObj.nombre : '').trim();
     const email = String(providerObj && providerObj.email ? providerObj.email : '').trim();
@@ -2881,10 +2881,37 @@ function adminSaveProvider(providerObj, actorEmail) {
 
     const all = sh.getDataRange().getValues();
     const providerMeta = buildProveedorHeaderMeta_(all[0] || PROVEEDOR_HEADERS);
+    const sameCountryMatches = [];
+    let rowNum = requestedRowNum;
     for (let i = 1; i < all.length; i++) {
         const existingCode = String(proveedorCell_(all[i], providerMeta, 'codigo', 0) || '').trim().toLowerCase();
+        const existingCountry = resolveCatalogCountryCode_(proveedorCell_(all[i], providerMeta, 'countryCode', 4));
         const currentRow = i + 1;
-        if (existingCode && existingCode === codigo.toLowerCase() && currentRow !== rowNum) {
+        if (existingCode && existingCode === codigo.toLowerCase() && sameCatalogCountry_(existingCountry, countryCode)) {
+            sameCountryMatches.push({ rowNum: currentRow, countryCode: existingCountry });
+        }
+    }
+
+    if (rowNum > 0 && (rowNum < 2 || rowNum > sh.getLastRow())) {
+        rowNum = 0;
+    }
+    if (rowNum <= 0 && sameCountryMatches.length === 1) {
+        rowNum = sameCountryMatches[0].rowNum;
+    }
+    if (rowNum <= 0 && sameCountryMatches.length > 1) {
+        return { success: false, message: 'Se encontraron multiples proveedores con el mismo codigo en este pais.' };
+    }
+
+    for (let i = 1; i < all.length; i++) {
+        const existingCode = String(proveedorCell_(all[i], providerMeta, 'codigo', 0) || '').trim().toLowerCase();
+        const existingCountry = resolveCatalogCountryCode_(proveedorCell_(all[i], providerMeta, 'countryCode', 4));
+        const currentRow = i + 1;
+        if (
+            existingCode &&
+            existingCode === codigo.toLowerCase() &&
+            sameCatalogCountry_(existingCountry, countryCode) &&
+            currentRow !== rowNum
+        ) {
             return { success: false, message: 'El codigo de proveedor ya existe.' };
         }
     }

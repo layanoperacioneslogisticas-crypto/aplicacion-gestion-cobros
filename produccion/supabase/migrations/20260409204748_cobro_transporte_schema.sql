@@ -1,0 +1,3 @@
+-- Baseline migration already applied on remote project.
+-- Source reference in this repo:
+-- produccion/sql_supabase/20260409_cobro_transporte_schema.sql

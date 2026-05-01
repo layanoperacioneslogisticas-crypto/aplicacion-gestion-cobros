@@ -1,0 +1,3 @@
+-- Catalog country migration already applied on remote project.
+-- Source reference in this repo:
+-- produccion/sql_supabase/20260410_add_country_to_catalogs.sql

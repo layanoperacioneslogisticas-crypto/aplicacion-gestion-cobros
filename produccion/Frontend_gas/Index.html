@@ -14235,7 +14235,8 @@
             codigo: p.codigo,
             nombre: p.nombre,
             email: p.email,
-            activo: p.activo
+            activo: p.activo,
+            countryCode: p.countryCode
           })).replace(/'/g, '%27');
           return `
             <tr>
@@ -14244,7 +14245,7 @@
               <td><small>${escapeHtmlUi(p.email || '-')}</small></td>
               <td class="text-center">
                 <div class="form-check form-switch d-inline-flex justify-content-center m-0">
-                  <input class="form-check-input" type="checkbox" ${p.activo ? 'checked' : ''} onchange="toggleProveedorActivo(${Number(p.row || 0)}, this.checked, this)">
+                  <input class="form-check-input" type="checkbox" ${p.activo ? 'checked' : ''} onchange="toggleProveedorActivoCod('${payload}', this.checked, this)">
                 </div>
               </td>
               <td>
@@ -14373,6 +14374,47 @@
           }
           Swal.fire('Error', getRunErrorMsg(err, 'No se pudo actualizar el proveedor.'), 'error');
         }).adminToggleProviderActivo(row, checked, usuarioSesion?.email || '');
+      }
+
+      function toggleProveedorActivoCod(payload, checked, el) {
+        let provider = null;
+        try {
+          provider = JSON.parse(decodeURIComponent(String(payload || '')));
+        } catch (e) {
+          provider = null;
+        }
+        if (!provider || !provider.codigo || !provider.nombre) {
+          if (el) el.checked = !checked;
+          return Swal.fire('Error', 'No se pudo identificar el proveedor para actualizar su estado.', 'error');
+        }
+        const input = el || null;
+        if (input) input.disabled = true;
+        const obj = {
+          row: provider.row || '',
+          codigo: String(provider.codigo || '').trim(),
+          nombre: String(provider.nombre || '').trim(),
+          email: String(provider.email || '').trim(),
+          countryCode: String(provider.countryCode || '').trim().toUpperCase(),
+          activo: !!checked
+        };
+        rpc.withSuccessHandler(r => {
+          if (input) input.disabled = false;
+          if (r && r.success) {
+            clearUiCache_('catalogosCobro');
+            cargarProveedores(true);
+            recargarProveedoresSelect(true);
+            showUiToast('info', checked ? 'Proveedor habilitado.' : 'Proveedor inhabilitado.');
+          } else {
+            if (input) input.checked = !checked;
+            Swal.fire('Error', r?.message || 'No se pudo actualizar el proveedor.', 'error');
+          }
+        }).withFailureHandler(err => {
+          if (input) {
+            input.disabled = false;
+            input.checked = !checked;
+          }
+          Swal.fire('Error', getRunErrorMsg(err, 'No se pudo actualizar el proveedor.'), 'error');
+        }).adminSaveProvider(obj, usuarioSesion?.email || '');
       }
 
       // =========================
