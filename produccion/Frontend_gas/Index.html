@@ -8785,7 +8785,12 @@
         <div class="modal-body">
           <form id="formMaestro">
             <input type="hidden" id="mRow">
+            <input type="hidden" id="mCountryCode">
             <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <label class="form-label small fw-bold">Pais asignado</label>
+                <input type="text" class="form-control" id="mCountryDisplay" placeholder="Auto" readonly>
+              </div>
               <div class="col-12 col-md-6">
                 <label class="form-label small fw-bold">Codigo</label>
                 <input type="text" class="form-control" id="mCodigo" required maxlength="80">
@@ -11601,6 +11606,22 @@
         if (wanted && Array.from(el.options).some(opt => opt.value === wanted)) {
           el.value = wanted;
         }
+      }
+
+      function getCountryDisplayLabelUi_(countryCode) {
+        const code = String(countryCode || '').trim().toUpperCase();
+        if (!code) return '';
+        const match = getCountryCatalogUi_().find(country => String(country.countryCode || '').trim().toUpperCase() === code);
+        const name = String(match?.name || code).trim();
+        return `${code} - ${name}`;
+      }
+
+      function setMaestroCountryUi_(countryCode) {
+        const code = String(countryCode || '').trim().toUpperCase();
+        const hidden = document.getElementById('mCountryCode');
+        const display = document.getElementById('mCountryDisplay');
+        if (hidden) hidden.value = code;
+        if (display) display.value = code ? getCountryDisplayLabelUi_(code) : 'Auto';
       }
 
       function getSelectedResponsableContext_() {
@@ -14579,7 +14600,8 @@
             precioConIgv: item.precioConIgv,
             precioSinIgv: item.precioSinIgv,
             ean: item.ean,
-            activo: item.activo
+            activo: item.activo,
+            countryCode: item.countryCode
           });
           return `
             <tr>
@@ -14949,6 +14971,7 @@
         if (form) form.reset();
         document.getElementById('mRow').value = '';
         document.getElementById('mActivo').checked = true;
+        setMaestroCountryUi_(usuarioSesion?.countryCode || '');
         modalMaestroEl.show();
       }
 
@@ -14962,6 +14985,7 @@
         document.getElementById('mPrecioSinIgv').value = data.precioSinIgv != null ? data.precioSinIgv : '';
         document.getElementById('mEan').value = data.ean || '';
         document.getElementById('mActivo').checked = parseLooseBoolUi_(data.activo, true);
+        setMaestroCountryUi_(data.countryCode || usuarioSesion?.countryCode || '');
         modalMaestroEl.show();
       }
 
@@ -14983,7 +15007,8 @@
           precioConIgv: Number(document.getElementById('mPrecioConIgv').value || 0),
           precioSinIgv: Number(document.getElementById('mPrecioSinIgv').value || 0),
           ean: document.getElementById('mEan').value.trim(),
-          activo: document.getElementById('mActivo').checked
+          activo: document.getElementById('mActivo').checked,
+          countryCode: document.getElementById('mCountryCode').value.trim().toUpperCase()
         };
         if (!obj.codigo || !obj.descripcion) {
           return Swal.fire('Error', 'Complete codigo y descripcion.', 'error');
