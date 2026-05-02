@@ -124,20 +124,34 @@ function drawHeader(doc, layout, view, logoBuffer) {
 
   const logoX = layout.x + 14;
   const logoY = layout.y + 12;
+  const logoRadius = PDF_LAYOUT.logoSize / 2;
+  const logoCenterX = logoX + logoRadius;
+  const logoCenterY = logoY + logoRadius;
+  const innerLogoSize = PDF_LAYOUT.logoSize - 10;
   if (logoBuffer) {
     doc.save();
-    doc.roundedRect(logoX, logoY, PDF_LAYOUT.logoSize, PDF_LAYOUT.logoSize, 10).clip();
-    doc.image(logoBuffer, logoX, logoY, {
-      fit: [PDF_LAYOUT.logoSize, PDF_LAYOUT.logoSize],
+    const blueGradient = doc.radialGradient(logoCenterX - 6, logoCenterY - 8, 4, logoCenterX, logoCenterY, logoRadius);
+    blueGradient.stop(0, '#2D7DFF');
+    blueGradient.stop(0.55, '#123F9A');
+    blueGradient.stop(1, '#081A46');
+    doc.circle(logoCenterX, logoCenterY, logoRadius).fill(blueGradient);
+    doc.lineWidth(1.6).strokeColor('#DCE9FF').circle(logoCenterX, logoCenterY, logoRadius - 1).stroke();
+    doc.circle(logoCenterX, logoCenterY, logoRadius - 5).clip();
+    doc.image(logoBuffer, logoX + 5, logoY + 5, {
+      fit: [innerLogoSize, innerLogoSize],
       align: 'center',
       valign: 'center'
     });
     doc.restore();
   } else {
     doc.save();
-    doc.roundedRect(logoX, logoY, PDF_LAYOUT.logoSize, PDF_LAYOUT.logoSize, 12).fill('#304A88');
+    const fallbackGradient = doc.radialGradient(logoCenterX - 6, logoCenterY - 8, 4, logoCenterX, logoCenterY, logoRadius);
+    fallbackGradient.stop(0, '#2D7DFF');
+    fallbackGradient.stop(0.55, '#123F9A');
+    fallbackGradient.stop(1, '#081A46');
+    doc.circle(logoCenterX, logoCenterY, logoRadius).fill(fallbackGradient);
     doc.restore();
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('#FFFFFF').text('PDC', logoX, logoY + 12, {
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#FFFFFF').text('PDC', logoX, logoY + 13, {
       width: PDF_LAYOUT.logoSize,
       align: 'center'
     });
