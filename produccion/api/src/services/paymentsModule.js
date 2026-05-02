@@ -154,16 +154,33 @@ async function getCobrosByIds(cobroIds, profile) {
 }
 
 async function listPaymentAuditRows(profile) {
-  let query = supabaseAdmin
+  const query = supabaseAdmin
     .from('ct_audit_log')
-    .select('cobro_id,detalle,usuario,created_at,ct_cobros(id,proveedor_nombre,proveedor_codigo,country_code,country_name)')
+    .select('cobro_id,detalle,usuario,created_at')
     .eq('accion', PAYMENT_AUDIT_ACTION)
     .order('created_at', { ascending: false })
     .limit(1500);
 
   const { data, error } = await query;
   if (error) throw createError(500, error.message);
-  return (data || []).filter((row) => sameCountry(profile, row?.ct_cobros || {}));
+
+  const rows = Array.isArray(data) ? data : [];
+  const cobroIds = Array.from(new Set(rows.map((row) => String(row?.cobro_id || '').trim()).filter(Boolean)));
+  if (!cobroIds.length) return [];
+
+  const { data: cobros, error: cobrosErr } = await supabaseAdmin
+    .from('ct_cobros')
+    .select('id,proveedor_nombre,proveedor_codigo,country_code,country_name')
+    .in('id', cobroIds);
+  if (cobrosErr) throw createError(500, cobrosErr.message);
+
+  const cobroMap = new Map((cobros || []).map((row) => [String(row?.id || '').trim(), row]));
+  return rows
+    .map((row) => ({
+      ...row,
+      ct_cobros: cobroMap.get(String(row?.cobro_id || '').trim()) || null
+    }))
+    .filter((row) => sameCountry(profile, row?.ct_cobros || {}));
 }
 
 export async function listPaymentsModule({ actorEmail, q = '' }) {
