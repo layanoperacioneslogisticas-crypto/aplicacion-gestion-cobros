@@ -11349,6 +11349,7 @@
         const el = document.getElementById(elementId);
         const host = document.getElementById(hostId);
         if (!el || !host || el.parentElement === host) return;
+        el.classList.remove('d-none');
         host.appendChild(el);
       }
 
@@ -11741,6 +11742,9 @@
           });
           (focusConfig.pdfs || []).forEach(([elementId]) => {
             moveFlowNodeToHost_(elementId, 'flowPaymentPdfHost');
+          });
+          (focusConfig.fields || []).forEach(([elementId]) => {
+            document.getElementById(elementId)?.classList.remove('d-none');
           });
         }
 
