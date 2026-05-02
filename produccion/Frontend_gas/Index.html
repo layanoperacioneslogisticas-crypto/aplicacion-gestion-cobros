@@ -10264,7 +10264,21 @@
         adminDebugMaestroState: () => ({ method: 'GET', path: '/api/admin/maestro/debug' }),
         adminImportMaestroItems: (args) => ({ method: 'POST', path: '/api/admin/maestro/import', body: { items: args[0] || [], options: args[1] || {}, actorEmail: args[2] || '' } }),
         adminSaveMaestroItem: (args) => ({ method: 'POST', path: '/api/admin/maestro', body: { item: args[0] || {}, actorEmail: args[1] || '' } }),
-        adminDeleteMaestroItem: (args) => ({ method: 'DELETE', path: '/api/admin/maestro/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
+        adminDeleteMaestroItem: (args) => {
+          const target = args[0];
+          if (target && typeof target === 'object') {
+            return {
+              method: 'DELETE',
+              path: '/api/admin/maestro',
+              body: { item: target, actorEmail: args[1] || '' }
+            };
+          }
+          return {
+            method: 'DELETE',
+            path: '/api/admin/maestro/' + encodeURIComponent(String(target || '')),
+            query: { actorEmail: args[1] || '' }
+          };
+        },
         adminToggleMaestroActivo: (args) => ({ method: 'POST', path: '/api/admin/maestro/' + encodeURIComponent(String(args[0] || '')) + '/toggle-active', body: { active: !!args[1], actorEmail: args[2] || '' } }),
         getRuleConfigData: (args) => ({ method: 'GET', path: '/api/config/rules', query: { actorEmail: args[0] || '' } }),
         saveCfgCountry: (args) => ({ method: 'POST', path: '/api/config/countries', body: { country: args[0] || {}, actorEmail: args[1] || '' } }),
@@ -15515,7 +15529,7 @@
               </td>
               <td>
                 <button class="btn btn-sm btn-outline-primary" onclick="editarMaestroCod('${payload}')"><i class="bi bi-pencil"></i></button>
-                <button class="btn btn-sm btn-outline-danger" onclick="borrarMaestro(${Number(item.row || 0)})"><i class="bi bi-trash"></i></button>
+                <button class="btn btn-sm btn-outline-danger" onclick="borrarMaestro('${payload}')"><i class="bi bi-trash"></i></button>
               </td>
             </tr>`;
         }).join('');
@@ -15962,7 +15976,15 @@
         }).adminToggleMaestroActivo(row, checked, usuarioSesion?.email || '');
       }
 
-      function borrarMaestro(row) {
+      function borrarMaestro(payloadOrRow) {
+        let target = payloadOrRow;
+        if (typeof payloadOrRow === 'string' && payloadOrRow) {
+          try {
+            target = JSON.parse(decodeURIComponent(payloadOrRow));
+          } catch (e) {
+            target = payloadOrRow;
+          }
+        }
         Swal.fire({
           title: 'Eliminar item maestro?',
           text: 'No se puede revertir',
@@ -15985,7 +16007,7 @@
           }).withFailureHandler(err => {
             mostrarLoading(false);
             Swal.fire('Error', getRunErrorMsg(err, 'No se pudo eliminar el item maestro.'), 'error');
-          }).adminDeleteMaestroItem(row, usuarioSesion?.email || '');
+          }).adminDeleteMaestroItem(target, usuarioSesion?.email || '');
         });
       }
 

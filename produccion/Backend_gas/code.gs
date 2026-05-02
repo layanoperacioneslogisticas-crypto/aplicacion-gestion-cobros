@@ -3420,14 +3420,55 @@ function adminDeleteMaestroItem(row, actorEmail) {
     if (!actorCtx.ok) return { success: false, message: actorCtx.message };
 
     const sh = ensureMaestroSheet_();
-    const rowNum = Number(row || 0);
     if (!sh) return { success: false, message: "Hoja 'maestro' no encontrada." };
-    if (rowNum < 2 || rowNum > sh.getLastRow()) {
-        return { success: false, message: 'Fila de maestro invalida.' };
-    }
+
+    const itemObj = row && typeof row === 'object' ? row : null;
+    let rowNum = Number(itemObj && itemObj.row ? itemObj.row : row || 0);
+    const requestedCode = String(itemObj && itemObj.codigo ? itemObj.codigo : '').trim().toLowerCase();
+    const requestedCountry = normalizeCountryCode_(itemObj && itemObj.countryCode) || actorCtx.countryCode;
 
     const headers = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), MAESTRO_HEADERS.length)).getValues()[0] || [];
     const meta = buildMaestroHeaderMeta_(headers);
+
+    if (rowNum > 0 && (rowNum < 2 || rowNum > sh.getLastRow())) {
+        rowNum = 0;
+    }
+
+    if (rowNum <= 0 && requestedCode) {
+        const all = sh.getDataRange().getValues();
+        const sameCountryMatches = [];
+        const codeOnlyMatches = [];
+
+        for (let i = 1; i < all.length; i++) {
+            const existingCode = String(maestroCell_(all[i], meta, 'codigo', 0) || '').trim().toLowerCase();
+            const existingCountry = resolveCatalogCountryCode_(maestroCell_(all[i], meta, 'countryCode', 7));
+            if (!existingCode || existingCode !== requestedCode) continue;
+            const currentRow = i + 1;
+            codeOnlyMatches.push({ rowNum: currentRow, countryCode: existingCountry });
+            if (sameCatalogCountry_(existingCountry, requestedCountry)) {
+                sameCountryMatches.push({ rowNum: currentRow, countryCode: existingCountry });
+            }
+        }
+
+        if (sameCountryMatches.length === 1) {
+            rowNum = sameCountryMatches[0].rowNum;
+        } else if (sameCountryMatches.length > 1) {
+            return {
+                success: false,
+                message: 'Se encontraron multiples items con el mismo codigo en este pais. Revise los duplicados antes de eliminar.'
+            };
+        } else if (codeOnlyMatches.length > 0) {
+            return {
+                success: false,
+                message: 'El codigo existe en otro pais. Revise el entorno del item antes de eliminarlo.'
+            };
+        }
+    }
+
+    if (rowNum < 2 || rowNum > sh.getLastRow()) {
+        return { success: false, message: 'No se pudo identificar el item maestro a eliminar.' };
+    }
+
     const rowValues = sh.getRange(rowNum, 1, 1, headers.length).getValues()[0] || [];
     const existingCountry = resolveCatalogCountryCode_(maestroCell_(rowValues, meta, 'countryCode', 7));
     if (!actorCanAccessCatalogCountry_(actorCtx.profile, existingCountry)) {

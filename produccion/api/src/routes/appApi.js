@@ -465,6 +465,13 @@ appApiRouter.post('/admin/maestro', jsonRoute((req) => {
   ], req);
 }));
 
+appApiRouter.delete('/admin/maestro', jsonRoute((req) => {
+  return invokeLegacy('adminDeleteMaestroItem', [
+    req.body?.item || req.body || {},
+    optionalString(req.body?.actorEmail)
+  ], req);
+}));
+
 appApiRouter.delete('/admin/maestro/:row', jsonRoute((req) => {
   return invokeLegacy('adminDeleteMaestroItem', [
     optionalNumber(req.params.row, 0),
