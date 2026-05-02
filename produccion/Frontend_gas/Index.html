@@ -9824,7 +9824,7 @@
                           </div>
                         </div>
 
-                        <div class="flow-observado-box">
+                        <div class="flow-observado-box" id="flowObservadoBox">
                           <label class="form-label small fw-bold text-danger">Motivo de observación</label>
                           <textarea id="gf_motivoObservacion" class="form-control form-control-sm" rows="2"
                             placeholder="Describa el motivo"></textarea>
@@ -11446,6 +11446,20 @@
         }
       }
 
+      function setFlowObservadoBoxVisible_(visible) {
+        const box = document.getElementById('flowObservadoBox');
+        if (!box) return;
+        box.classList.toggle('d-none', !visible);
+      }
+
+      function updateFlowObservadoBoxUi(flowData) {
+        const idx = parseEtapaIdx(flowData?.etapa || document.getElementById('gf_etapa')?.value || '');
+        const estado = normalizeEstadoUI(flowData?.estado || document.getElementById('gf_estado')?.value || '');
+        const motivo = String(document.getElementById('gf_motivoObservacion')?.value || '').trim();
+        const show = estado === 'Observado' || !!motivo || idx !== 9;
+        setFlowObservadoBoxVisible_(show);
+      }
+
       function applyFlowUi(etapaStr, cacheRow, flowData) {
         const idx = parseEtapaIdx(etapaStr);
         flowStageCatalogCurrent = Array.isArray(flowData?.stageCatalog) ? flowData.stageCatalog.slice() : [];
@@ -11461,6 +11475,7 @@
         updateFlowStartButtonUi(etapaStr);
         updateFlowActionButtonsUi(flowData || {});
         updateFlowPaymentBridgeUi(flowData || {}, cacheRow || {});
+        updateFlowObservadoBoxUi(flowData || {});
       }
 
       function updateFlowStartButtonUi(etapaStr) {
@@ -14897,6 +14912,13 @@
 
       function marcarObservadoFlow() {
         const id = document.getElementById('gf_id').value;
+        const observacionBoxHidden = document.getElementById('flowObservadoBox')?.classList.contains('d-none');
+        if (observacionBoxHidden) {
+          setFlowObservadoBoxVisible_(true);
+          const motivoEl = document.getElementById('gf_motivoObservacion');
+          try { motivoEl?.focus(); } catch (e) { }
+          return Swal.fire('Atención', 'Ingresa primero el motivo de observación para regresar el caso.', 'warning');
+        }
         const motivo = document.getElementById('gf_motivoObservacion').value.trim();
         if (!id) return;
         if (!motivo) return Swal.fire('Atención', 'Ingrese el motivo de observación.', 'warning');
