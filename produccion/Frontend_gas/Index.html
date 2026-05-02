@@ -10279,7 +10279,21 @@
             query: { actorEmail: args[1] || '' }
           };
         },
-        adminToggleMaestroActivo: (args) => ({ method: 'POST', path: '/api/admin/maestro/' + encodeURIComponent(String(args[0] || '')) + '/toggle-active', body: { active: !!args[1], actorEmail: args[2] || '' } }),
+        adminToggleMaestroActivo: (args) => {
+          const target = args[0];
+          if (target && typeof target === 'object') {
+            return {
+              method: 'POST',
+              path: '/api/admin/maestro/toggle-active',
+              body: { item: target, active: !!args[1], actorEmail: args[2] || '' }
+            };
+          }
+          return {
+            method: 'POST',
+            path: '/api/admin/maestro/' + encodeURIComponent(String(target || '')) + '/toggle-active',
+            body: { active: !!args[1], actorEmail: args[2] || '' }
+          };
+        },
         getRuleConfigData: (args) => ({ method: 'GET', path: '/api/config/rules', query: { actorEmail: args[0] || '' } }),
         saveCfgCountry: (args) => ({ method: 'POST', path: '/api/config/countries', body: { country: args[0] || {}, actorEmail: args[1] || '' } }),
         deleteCfgCountry: (args) => ({ method: 'DELETE', path: '/api/config/countries/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
@@ -15524,7 +15538,7 @@
               <td>${escapeHtmlUi(item.ean || '-')}</td>
               <td class="text-center">
                 <div class="form-check form-switch d-inline-flex justify-content-center m-0">
-                  <input class="form-check-input" type="checkbox" ${item.activo ? 'checked' : ''} onchange="toggleMaestroActivo(${Number(item.row || 0)}, this.checked, this)">
+                  <input class="form-check-input" type="checkbox" ${item.activo ? 'checked' : ''} onchange="toggleMaestroActivo('${payload}', this.checked, this)">
                 </div>
               </td>
               <td>
@@ -15964,7 +15978,15 @@
         });
       }
 
-      function toggleMaestroActivo(row, checked, el) {
+      function toggleMaestroActivo(payloadOrRow, checked, el) {
+        let target = payloadOrRow;
+        if (typeof payloadOrRow === 'string' && payloadOrRow) {
+          try {
+            target = JSON.parse(decodeURIComponent(payloadOrRow));
+          } catch (e) {
+            target = payloadOrRow;
+          }
+        }
         rpc.withSuccessHandler(r => {
           if (r && r.success) {
             clearUiCache_('catalogosCobro');
@@ -15973,7 +15995,7 @@
             if (el) el.checked = !checked;
             Swal.fire('Error', r?.message || 'No se pudo actualizar el estado del item.', 'error');
           }
-        }).adminToggleMaestroActivo(row, checked, usuarioSesion?.email || '');
+        }).adminToggleMaestroActivo(target, checked, usuarioSesion?.email || '');
       }
 
       function borrarMaestro(payloadOrRow) {

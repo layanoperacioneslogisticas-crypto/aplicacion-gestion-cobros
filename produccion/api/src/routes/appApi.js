@@ -458,6 +458,14 @@ appApiRouter.post('/admin/maestro/:row/toggle-active', jsonRoute((req) => {
   ], req);
 }));
 
+appApiRouter.post('/admin/maestro/toggle-active', jsonRoute((req) => {
+  return invokeLegacy('adminToggleMaestroActivo', [
+    req.body?.item || req.body || {},
+    optionalBoolean(req.body?.active, false),
+    optionalString(req.body?.actorEmail)
+  ], req);
+}));
+
 appApiRouter.post('/admin/maestro', jsonRoute((req) => {
   return invokeLegacy('adminSaveMaestroItem', [
     req.body?.item || req.body || {},
