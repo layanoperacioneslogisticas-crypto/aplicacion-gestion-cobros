@@ -6,6 +6,8 @@ const SPECIAL_METHODS = new Set([
   'getPdfRootMeta',
   'getPdfRootUrl',
   'getDataForFrontend',
+  'adminGetProveedores',
+  'adminSaveProvider',
   'getCobroFlowData',
   'adminGetMaestroItems',
   'adminGetMaestroItemsJson',

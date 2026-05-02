@@ -206,6 +206,70 @@ async function listFrontendProviders(actorCountry) {
   return (data || []).map(mapProviderRecord);
 }
 
+function normalizeLooseBoolean(value, fallback = true) {
+  if (typeof value === 'boolean') return value;
+  if (value == null || value === '') return !!fallback;
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'si', 'on', 'activo', 'habilitado'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off', 'inactivo', 'deshabilitado'].includes(normalized)) return false;
+  return !!fallback;
+}
+
+async function adminSaveProviderSpecial(args) {
+  const provider = args?.[0] || {};
+  const actorEmail = args?.[1];
+  const profile = await getCatalogActorProfile(actorEmail);
+  if (!profile?.email) {
+    return { success: false, message: 'Sesion invalida o expirada.' };
+  }
+
+  const codigo = String(provider?.codigo || '').trim();
+  const nombre = String(provider?.nombre || '').trim();
+  const email = String(provider?.email || provider?.correo || '').trim();
+  const requestedCountry = normalizeCountryCode(provider?.countryCode) || profile.countryCode;
+  const activo = normalizeLooseBoolean(provider?.activo, true);
+
+  if (!codigo || !nombre) {
+    return { success: false, message: 'Codigo y nombre son obligatorios.' };
+  }
+  if (!requestedCountry) {
+    return { success: false, message: 'El proveedor debe tener un pais asignado.' };
+  }
+  if (requestedCountry !== profile.countryCode) {
+    return { success: false, message: 'No tiene acceso a registrar proveedores fuera de su entorno.' };
+  }
+
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from('ct_providers')
+    .select('codigo,country_code,created_at')
+    .eq('codigo', codigo)
+    .maybeSingle();
+  if (existingError) throw existingError;
+
+  if (existing && !actorCanAccessRow(profile, existing)) {
+    return { success: false, message: 'No tiene acceso a este proveedor fuera de su entorno.' };
+  }
+
+  const payload = {
+    codigo,
+    nombre,
+    correo: email,
+    activo,
+    country_code: existing?.country_code ? normalizeCountryCode(existing.country_code) : requestedCountry,
+    updated_at: new Date().toISOString()
+  };
+  if (!existing?.created_at) {
+    payload.created_at = new Date().toISOString();
+  }
+
+  const { error } = await supabaseAdmin
+    .from('ct_providers')
+    .upsert(payload, { onConflict: 'codigo' });
+  if (error) throw error;
+
+  return { success: true };
+}
+
 async function listFrontendPilots(actorCountry) {
   let query = supabaseAdmin
     .from('ct_pilots')
@@ -705,6 +769,10 @@ export async function executeLegacySpecial(method, args, { req }) {
       return buildStorageBrowserUrl(LEGACY_ROOT_PREFIX, req);
     case 'getDataForFrontend':
       return getDataForFrontendSpecial(args);
+    case 'adminGetProveedores':
+      return adminGetProveedoresSpecial(args);
+    case 'adminSaveProvider':
+      return adminSaveProviderSpecial(args);
     case 'adminGetMaestroItems':
       return adminGetMaestroItemsSpecial(args);
     case 'adminGetMaestroItemsJson':
