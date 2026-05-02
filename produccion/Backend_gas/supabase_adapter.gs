@@ -353,6 +353,7 @@ function buildSupabaseSheetDefs_() {
             { header: WF.firmaFacturaLink, field: 'firma_factura_link', type: 'text' },
             { header: WF.firmaFacturaUrl, field: 'firma_factura_url', type: 'text' },
             { header: WF.liquidacionRef, field: 'liquidacion_ref', type: 'text' },
+            { header: WF.montoPago, field: 'monto_pago', type: 'number' },
             { header: WF.constanciaPagoUrl, field: 'constancia_pago_url', type: 'text' },
             { header: WF.rmNumero, field: 'rm_numero', type: 'text' },
             { header: WF.facturasDebitar, field: 'facturas_debitar', type: 'text' },

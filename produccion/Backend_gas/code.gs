@@ -98,6 +98,7 @@ const WF = {
     firmaFacturaUrl: 'FirmaFacturaUrl',
     liquidacionRef: 'LiquidacionRef',
     constanciaPagoUrl: 'ConstanciaPagoUrl',
+    montoPago: 'MontoPago',
     rmNumero: 'RM_Numero',
     facturasDebitar: 'FacturasDebitar',
     debitoRef: 'DebitoRef',
@@ -5487,6 +5488,8 @@ function canEditField_(profile, fieldName) {
         normalizeKey_(WF.firmaBoletaUrl),
         normalizeKey_(WF.firmaFacturaUrl),
         normalizeKey_(WF.rutaId),
+        normalizeKey_(WF.debitoRef),
+        normalizeKey_(WF.montoPago),
         normalizeKey_(WF.constanciaPagoUrl),
         normalizeKey_(WF.motivoObservacion)
     ];
@@ -5510,6 +5513,8 @@ function validaRequisitosEntrada_(toIdx, row, headerMap) {
     const facturaUrl = rowText_(row, headerMap, [WF.facturaUrl]);
     const firmaFactura = rowText_(row, headerMap, [WF.firmaFacturaUrl]);
     const liquidacionRef = rowText_(row, headerMap, [WF.liquidacionRef]);
+    const debitoRef = rowText_(row, headerMap, [WF.debitoRef]);
+    const montoPago = rowText_(row, headerMap, [WF.montoPago]);
     const constanciaPagoUrl = rowText_(row, headerMap, [WF.constanciaPagoUrl]);
 
     if (toIdx === 2 && !pdf) return { ok: false, message: 'No puede avanzar a etapa 2 sin PDF.' };
@@ -5520,6 +5525,8 @@ function validaRequisitosEntrada_(toIdx, row, headerMap) {
     if (toIdx === 7 && !facturaUrl && !facturaNumero) return { ok: false, message: 'No puede avanzar a etapa 7 sin FacturaUrl o FacturaNumero.' };
     if (toIdx === 8 && !firmaFactura) return { ok: false, message: 'No puede avanzar a etapa 8 sin FirmaFacturaUrl.' };
     if (toIdx === 9 && !liquidacionRef) return { ok: false, message: 'No puede avanzar a etapa 9 sin la referencia de liquidación.' };
+    if (toIdx === 10 && !debitoRef) return { ok: false, message: 'No puede avanzar a etapa 10 sin número de operación.' };
+    if (toIdx === 10 && !montoPago) return { ok: false, message: 'No puede avanzar a etapa 10 sin monto de pago.' };
     if (toIdx === 10 && !constanciaPagoUrl) return { ok: false, message: 'No puede avanzar a etapa 10 sin constancia de pago.' };
     return { ok: true };
 }
@@ -5539,6 +5546,8 @@ function computeAutoTargetEtapa_(row, headerMap) {
     const facturaUrl = rowText_(row, headerMap, [WF.facturaUrl]);
     const firmaFactura = rowText_(row, headerMap, [WF.firmaFacturaUrl]);
     const liquidacionRef = rowText_(row, headerMap, [WF.liquidacionRef]);
+    const debitoRef = rowText_(row, headerMap, [WF.debitoRef]);
+    const montoPago = rowText_(row, headerMap, [WF.montoPago]);
     const constanciaPagoUrl = rowText_(row, headerMap, [WF.constanciaPagoUrl]);
 
     if (boletaFirmada && targetIdx < 3) { targetIdx = 3; reason = 'Boleta firmada cargada'; }
@@ -5548,7 +5557,7 @@ function computeAutoTargetEtapa_(row, headerMap) {
     if ((facturaNumero || facturaUrl) && targetIdx < 7) { targetIdx = 7; reason = 'Factura registrada'; }
     if (firmaFactura && targetIdx < 8) { targetIdx = 8; reason = 'Firma factura cargada'; }
     if (liquidacionRef && targetIdx < 9) { targetIdx = 9; reason = 'Liquidación registrada'; }
-    if (constanciaPagoUrl && targetIdx < 10) { targetIdx = 10; reason = 'Constancia de pago cargada'; }
+    if (debitoRef && montoPago && constanciaPagoUrl && targetIdx < 10) { targetIdx = 10; reason = 'Pago gestionado con operación y constancia'; }
 
     return {
         currentIdx: currentIdx,
@@ -9218,7 +9227,7 @@ function getCobroFlowData(id, actorEmail) {
         const fields = [
             WF.firmaBoletaUrl, WF.inventarioStatus, WF.comentarioInventario,
             WF.ovNumero, WF.rutaId, WF.facturaNumero, WF.facturaUrl,
-            WF.firmaFacturaUrl, WF.liquidacionRef, WF.constanciaPagoUrl,
+            WF.firmaFacturaUrl, WF.liquidacionRef, WF.debitoRef, WF.montoPago, WF.constanciaPagoUrl,
             WF.facturasDebitar, WF.motivoObservacion
         ];
         for (let i = 0; i < fields.length; i++) {
@@ -9253,10 +9262,11 @@ function getCobroFlowData(id, actorEmail) {
             firmaFacturaLink: rowText_(row, map, [WF.firmaFacturaLink]),
             firmaFacturaUrl: rowText_(row, map, [WF.firmaFacturaUrl]),
             liquidacionRef: rowText_(row, map, [WF.liquidacionRef]),
+            debitoRef: rowText_(row, map, [WF.debitoRef]),
+            montoPago: rowText_(row, map, [WF.montoPago]),
             constanciaPagoUrl: rowText_(row, map, [WF.constanciaPagoUrl]),
             rmNumero: rowText_(row, map, [WF.rmNumero]),
             facturasDebitar: rowText_(row, map, [WF.facturasDebitar]),
-            debitoRef: rowText_(row, map, [WF.debitoRef]),
             etapaAnterior: estadoActual === 'Observado' ? etapaObservada : '',
             etapaRetornoObservado: estadoActual === 'Observado' ? etapaRetornoObservado : '',
             areaObservacion: areaObservacion,
@@ -9421,7 +9431,7 @@ function updateCobroCampos(id, updates, actorEmail, actorCtx) {
         WF.inventarioStatus, WF.comentarioInventario,
         WF.ovNumero, WF.rutaId, WF.facturaNumero, WF.facturaUrl,
         WF.firmaFacturaLink, WF.firmaFacturaUrl,
-        WF.liquidacionRef, WF.constanciaPagoUrl, WF.rmNumero, WF.facturasDebitar, WF.debitoRef, WF.motivoObservacion
+        WF.liquidacionRef, WF.constanciaPagoUrl, WF.rmNumero, WF.facturasDebitar, WF.debitoRef, WF.montoPago, WF.motivoObservacion
     ];
 
     const payload = {};
@@ -9443,6 +9453,18 @@ function updateCobroCampos(id, updates, actorEmail, actorCtx) {
                 return { success: false, message: 'InventarioStatus debe ser: OK, Ajuste o No hay.' };
             }
             val = raw;
+        }
+        if (h === WF.montoPago) {
+            const rawMonto = String(val || '').trim().replace(',', '.');
+            if (!rawMonto) {
+                val = '';
+            } else {
+                const montoNum = Number(rawMonto);
+                if (isNaN(montoNum) || montoNum <= 0) {
+                    return { success: false, message: 'MontoPago debe ser un número mayor a 0.' };
+                }
+                val = montoNum.toFixed(2);
+            }
         }
         const valTxt = String(val || '').trim();
         payload[h] = valTxt;

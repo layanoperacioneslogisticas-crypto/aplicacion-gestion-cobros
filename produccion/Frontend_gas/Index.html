@@ -9675,6 +9675,16 @@
                                 placeholder="Referencia de liquidación">
                             </div>
                             <div class="col-md-4">
+                              <label class="form-label small fw-bold">Número de operación</label>
+                              <input id="gf_debitoRef" class="form-control form-control-sm" data-min-stage="9"
+                                placeholder="Número de operación del pago">
+                            </div>
+                            <div class="col-md-4">
+                              <label class="form-label small fw-bold">Monto de pago</label>
+                              <input id="gf_montoPago" type="number" step="0.01" min="0.01" class="form-control form-control-sm" data-min-stage="9"
+                                placeholder="Ej: 1500.00">
+                            </div>
+                            <div class="col-md-4">
                               <label class="form-label small fw-bold">Aplicación de pago</label>
                               <input id="gf_facturasDebitar" class="form-control form-control-sm" data-min-stage="10"
                                 placeholder="Detalle o referencia de aplicación">
@@ -10144,7 +10154,7 @@
         6: 'Ingresa FacturaNumero y carga el PDF.',
         7: 'Sube la firma de factura.',
         8: 'Ingresa la referencia de liquidación.',
-        9: 'Transporte debe subir la constancia de pago en PDF.',
+        9: 'Transporte debe registrar número de operación, monto de pago y subir la constancia en PDF.',
         10: 'Créditos y Cobros registra la aplicación de pago. Al guardar se cierra el caso.'
       };
       const FLOW_STAGE_AREAS = {
@@ -10568,6 +10578,7 @@
           5: 'gf_rutaId',
           6: 'gf_facturaNumero',
           8: 'gf_liquidacionRef',
+          9: 'gf_debitoRef',
           10: 'gf_facturasDebitar'
         };
         return map[Number(idx) || 0] || '';
@@ -10802,7 +10813,7 @@
       }
 
       function bindFlowValidation() {
-        ['gf_inventarioStatus', 'gf_comentarioInventario', 'gf_ovNumero', 'gf_rutaId', 'gf_facturaNumero', 'gf_liquidacionRef', 'gf_facturasDebitar', 'gf_motivoObservacion']
+        ['gf_inventarioStatus', 'gf_comentarioInventario', 'gf_ovNumero', 'gf_rutaId', 'gf_facturaNumero', 'gf_liquidacionRef', 'gf_debitoRef', 'gf_montoPago', 'gf_facturasDebitar', 'gf_motivoObservacion']
           .forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('input', () => el.classList.remove('is-invalid'));
@@ -10831,7 +10842,11 @@
           6: [{ id: 'gf_facturaNumero', msg: 'Ingresa FacturaNumero.' }, { id: 'gf_facturaUrl', msg: 'Sube Factura (PDF).' }],
           7: [{ id: 'gf_firmaFacturaUrl', msg: 'Sube la firma de factura (PDF).' }],
           8: [{ id: 'gf_liquidacionRef', msg: 'Ingresa la referencia de liquidación.' }],
-          9: [{ id: 'gf_constanciaPagoUrl', msg: 'Sube la constancia de pago (PDF).' }],
+          9: [
+            { id: 'gf_debitoRef', msg: 'Ingresa el número de operación del pago.' },
+            { id: 'gf_montoPago', msg: 'Ingresa el monto de pago.' },
+            { id: 'gf_constanciaPagoUrl', msg: 'Sube la constancia de pago (PDF).' }
+          ],
           10: [{ id: 'gf_facturasDebitar', msg: 'Ingresa la aplicación de pago.' }]
         };
         const req = rules[idx] || [];
@@ -13500,6 +13515,8 @@
             document.getElementById('gf_facturaUrl').value = r.facturaUrl || '';
             document.getElementById('gf_firmaFacturaUrl').value = r.firmaFacturaUrl || '';
             document.getElementById('gf_liquidacionRef').value = r.liquidacionRef || '';
+            document.getElementById('gf_debitoRef').value = r.debitoRef || '';
+            document.getElementById('gf_montoPago').value = r.montoPago || '';
             document.getElementById('gf_constanciaPagoUrl').value = r.constanciaPagoUrl || '';
             document.getElementById('gf_facturasDebitar').value = r.facturasDebitar || '';
             document.getElementById('gf_limiteBoleta').value = fmtDateAny(r.fechaLimiteFirmaBoleta);
@@ -13632,6 +13649,8 @@
           FacturaUrl: 'gf_facturaUrl',
           FirmaFacturaUrl: 'gf_firmaFacturaUrl',
           LiquidacionRef: 'gf_liquidacionRef',
+          DebitoRef: 'gf_debitoRef',
+          MontoPago: 'gf_montoPago',
           ConstanciaPagoUrl: 'gf_constanciaPagoUrl',
           FacturasDebitar: 'gf_facturasDebitar',
           MotivoObservacion: 'gf_motivoObservacion'
