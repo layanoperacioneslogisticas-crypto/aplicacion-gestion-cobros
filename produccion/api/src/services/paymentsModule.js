@@ -274,8 +274,8 @@ export async function listEligiblePaymentCobrosModule({ actorEmail, q = '' }) {
 
   let query = supabaseAdmin
     .from('ct_cobros')
-    .select('id,proveedor_nombre,proveedor_codigo,ruta,unidad,total_cobro,estado,etapa,country_code,country_name,monto_pago')
-    .in('etapa', ['9. Gestionar pago', '10. Aplicación de pago'])
+    .select('id,proveedor_nombre,proveedor_codigo,ruta,unidad,total_cobro,estado,etapa,country_code,country_name,monto_pago,debito_ref,constancia_pago_url')
+    .eq('etapa', '9. Gestionar pago')
     .neq('estado', 'Anulado')
     .order('fecha_registro', { ascending: false })
     .limit(250);
@@ -297,6 +297,11 @@ export async function listEligiblePaymentCobrosModule({ actorEmail, q = '' }) {
         const totalCobro = round2(row.total_cobro || 0);
         const allocatedAmount = round2(row.monto_pago || 0);
         const saldoPendiente = round2(Math.max(0, totalCobro - allocatedAmount));
+        const hasExistingPaymentLink = Boolean(
+          String(row.debito_ref || '').trim() ||
+          String(row.constancia_pago_url || '').trim() ||
+          allocatedAmount > 0
+        );
         return {
           id: String(row.id || '').trim(),
           proveedor: String(row.proveedor_nombre || '').trim(),
@@ -308,11 +313,12 @@ export async function listEligiblePaymentCobrosModule({ actorEmail, q = '' }) {
           totalCobro,
           allocatedAmount,
           saldoPendiente,
+          hasExistingPaymentLink,
           countryCode: String(row.country_code || '').trim(),
           countryName: String(row.country_name || '').trim()
         };
       })
-      .filter((row) => row.saldoPendiente > 0)
+      .filter((row) => row.saldoPendiente > 0 && !row.hasExistingPaymentLink)
       .filter((row) => {
         if (!search) return true;
         return [
