@@ -5,7 +5,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "postinstall": "npm --prefix api install --omit=dev",
+    "postinstall": "npm --prefix api ci --omit=dev --no-audit --fund=false",
     "start": "npm --prefix api start"
   }
 }

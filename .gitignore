@@ -4,7 +4,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
 .env
@@ -30,3 +29,6 @@ logs/
 
 # System files
 Thumbs.db
+
+!produccion/package-lock.json
+!produccion/api/package-lock.json
