@@ -1,4 +1,7 @@
 import PDFDocument from 'pdfkit';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const PDF_LAYOUT = Object.freeze({
   pageMargin: 16,
@@ -21,6 +24,10 @@ const PDF_LAYOUT = Object.freeze({
   signatureHeight: 78,
   footerInset: 14
 });
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const localLogoPath = path.resolve(__dirname, '../../../icon/images.png');
+let cachedLocalLogoBufferPromise = null;
 
 function text(value, fallback = '') {
   const normalized = String(value ?? '').replace(/\s+/g, ' ').trim();
@@ -67,6 +74,13 @@ async function loadImageBuffer(rawValue) {
   }
 }
 
+async function loadBundledLogoBuffer() {
+  if (!cachedLocalLogoBufferPromise) {
+    cachedLocalLogoBufferPromise = fs.readFile(localLogoPath).catch(() => null);
+  }
+  return cachedLocalLogoBufferPromise;
+}
+
 function drawRoundedCard(doc, x, y, w, h, fillColor = '#FFFFFF', strokeColor = '#DBE4F3', radius = 12) {
   doc.save();
   doc.lineWidth(1);
@@ -98,7 +112,7 @@ function addPage(doc) {
   };
 }
 
-function drawHeader(doc, layout, view) {
+function drawHeader(doc, layout, view, logoBuffer) {
   const headerH = PDF_LAYOUT.headerHeight;
   const gradient = doc.linearGradient(layout.x, layout.y, layout.x + layout.width, layout.y);
   gradient.stop(0, '#163B82');
@@ -110,13 +124,24 @@ function drawHeader(doc, layout, view) {
 
   const logoX = layout.x + 14;
   const logoY = layout.y + 12;
-  doc.save();
-  doc.roundedRect(logoX, logoY, PDF_LAYOUT.logoSize, PDF_LAYOUT.logoSize, 12).fill('#304A88');
-  doc.restore();
-  doc.font('Helvetica-Bold').fontSize(12).fillColor('#FFFFFF').text('PDC', logoX, logoY + 12, {
-    width: PDF_LAYOUT.logoSize,
-    align: 'center'
-  });
+  if (logoBuffer) {
+    doc.save();
+    doc.roundedRect(logoX, logoY, PDF_LAYOUT.logoSize, PDF_LAYOUT.logoSize, 10).clip();
+    doc.image(logoBuffer, logoX, logoY, {
+      fit: [PDF_LAYOUT.logoSize, PDF_LAYOUT.logoSize],
+      align: 'center',
+      valign: 'center'
+    });
+    doc.restore();
+  } else {
+    doc.save();
+    doc.roundedRect(logoX, logoY, PDF_LAYOUT.logoSize, PDF_LAYOUT.logoSize, 12).fill('#304A88');
+    doc.restore();
+    doc.font('Helvetica-Bold').fontSize(12).fillColor('#FFFFFF').text('PDC', logoX, logoY + 12, {
+      width: PDF_LAYOUT.logoSize,
+      align: 'center'
+    });
+  }
 
   doc.font('Helvetica-Bold').fontSize(15).fillColor('#FFFFFF').text('Cobro a Transporte', logoX + 46, logoY + 4);
   doc.font('Helvetica').fontSize(8.5).fillColor('#D7E8FF').text('Boleta interna - Preimpreso digital', logoX + 46, logoY + 24);
@@ -342,6 +367,7 @@ function drawFooter(doc, layout, y, view) {
 export async function buildStyledCobroPdfBuffer({ id, formObject, items = [] }) {
   const signVista = await loadImageBuffer(formObject?.firmaVista);
   const signPiloto = await loadImageBuffer(formObject?.firmaPiloto);
+  const appLogo = await loadBundledLogoBuffer();
 
   const totalCajas = items.reduce((sum, item) => sum + Number(item?.cajas || 0), 0);
   const totalUnidadesSueltas = items.reduce((sum, item) => sum + Number(item?.unidadesSueltas || 0), 0);
@@ -392,7 +418,7 @@ export async function buildStyledCobroPdfBuffer({ id, formObject, items = [] }) 
         bottom: doc.page.height - doc.page.margins.bottom
       };
 
-      let y = drawHeader(doc, layout, view);
+      let y = drawHeader(doc, layout, view, appLogo);
       y = drawMetaGrid(doc, layout, y, view);
       const tableResult = drawItemsTable(doc, layout, y, Array.isArray(items) ? items : [], view);
       layout = tableResult.layout;
