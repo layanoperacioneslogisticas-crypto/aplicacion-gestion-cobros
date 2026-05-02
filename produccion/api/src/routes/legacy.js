@@ -12,6 +12,11 @@ function loadLegacyFrontendHtml() {
   return fs.readFileSync(frontendPath, 'utf8');
 }
 
+function fileNameFromStoragePath(pathValue) {
+  const clean = String(pathValue || '').trim().split('/').pop() || 'archivo.pdf';
+  return clean.replace(/[^a-zA-Z0-9._-]+/g, '_');
+}
+
 export const legacyRouter = Router();
 
 legacyRouter.get('/', (_req, res) => {
@@ -28,6 +33,9 @@ legacyRouter.get('/files/:id', async (req, res) => {
     const pathValue = base64UrlDecode(id);
     const file = await downloadStorageObject(pathValue);
     res.setHeader('Content-Type', file.contentType || 'application/octet-stream');
+    if (String(file.contentType || '').toLowerCase() === 'application/pdf') {
+      res.setHeader('Content-Disposition', `inline; filename="${fileNameFromStoragePath(pathValue)}"`);
+    }
     res.send(file.buffer);
   } catch {
     res.status(404).send('Archivo no encontrado.');

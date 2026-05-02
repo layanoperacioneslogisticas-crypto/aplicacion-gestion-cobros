@@ -13151,9 +13151,20 @@
           const resourceKey = extractDriveResourceKeyClient(u);
           return `https://drive.google.com/file/d/${driveId}/preview${resourceKey ? ('?resourcekey=' + encodeURIComponent(resourceKey)) : ''}`;
         }
-        const low = u.toLowerCase();
-        if (low.indexOf('googleusercontent.com') >= 0 || low.indexOf('.pdf') >= 0) return u;
-        return 'https://docs.google.com/gview?embedded=1&url=' + encodeURIComponent(u);
+        try {
+          const parsed = new URL(u, window.location.href);
+          const low = parsed.href.toLowerCase();
+          const sameOrigin = parsed.origin === window.location.origin;
+          const isAppFileRoute = parsed.pathname.indexOf('/files/') === 0;
+          if (sameOrigin || isAppFileRoute || low.indexOf('googleusercontent.com') >= 0 || low.indexOf('.pdf') >= 0) {
+            return parsed.href;
+          }
+          return parsed.href;
+        } catch (e) {
+          const low = u.toLowerCase();
+          if (low.indexOf('googleusercontent.com') >= 0 || low.indexOf('.pdf') >= 0 || low.indexOf('/files/') >= 0) return u;
+          return u;
+        }
       }
 
       function toPdfOpenUrl(url) {
