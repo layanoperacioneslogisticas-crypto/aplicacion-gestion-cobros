@@ -3423,7 +3423,11 @@ function adminDeleteMaestroItem(row, actorEmail) {
     if (!sh) return { success: false, message: "Hoja 'maestro' no encontrada." };
 
     const itemObj = row && typeof row === 'object' ? row : null;
-    let rowNum = Number(itemObj && itemObj.row ? itemObj.row : row || 0);
+    const rawRowValue = itemObj
+        ? (itemObj.row != null && itemObj.row !== '' ? itemObj.row : 0)
+        : row;
+    let rowNum = Number(rawRowValue || 0);
+    if (!isFinite(rowNum)) rowNum = 0;
     const requestedCode = String(itemObj && itemObj.codigo ? itemObj.codigo : '').trim().toLowerCase();
     const requestedCountry = normalizeCountryCode_(itemObj && itemObj.countryCode) || actorCtx.countryCode;
 
