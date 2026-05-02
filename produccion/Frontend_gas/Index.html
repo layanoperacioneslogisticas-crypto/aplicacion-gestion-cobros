@@ -7830,7 +7830,7 @@
                 </select>
               </div>
               <div class="col-3 col-md-2">
-                <label class="form-label small fw-bold">Precio</label>
+                <label class="form-label small fw-bold">Precio c/IGV</label>
                 <input type="number" class="form-control bg-white shadow-sm" id="itemPrecio" readonly>
               </div>
               <div class="col-3 col-md-1">
@@ -8770,7 +8770,7 @@
             <th>Descripción</th>
             <th class="text-center">Cajas</th>
             <th class="text-center">Unds</th>
-            <th class="text-end">Precio</th>
+                <th class="text-end">Precio c/IGV</th>
             <th>Incidencia</th>
           </tr>
         </thead>
@@ -18207,8 +18207,15 @@
           const a = document.createElement('button');
           a.type = 'button';
           a.className = 'list-group-item list-group-item-action';
-          a.innerHTML = `<strong>${i.descripcion}</strong> <small>(${i.codigo})</small>`;
+          const hasPrecioConIgv = Number(i?.precioConIgv || 0) > 0;
+          a.innerHTML = hasPrecioConIgv
+            ? `<strong>${i.descripcion}</strong> <small>(${i.codigo})</small><div class="small text-muted">Precio c/IGV: ${fmtMoney(i.precioConIgv || 0)}</div>`
+            : `<strong>${i.descripcion}</strong> <small>(${i.codigo})</small><div class="small text-danger">No disponible: asigne Precio con IGV en Tabla Maestro.</div>`;
           a.onclick = () => {
+            if (!hasPrecioConIgv) {
+              Swal.fire('Precio requerido', 'Este producto no tiene Precio con IGV configurado en Tabla Maestro y no puede usarse en la boleta.', 'warning');
+              return;
+            }
             si.value = i.descripcion;
             document.getElementById('itemCodigo').value = i.codigo;
             document.getElementById('itemPrecio').value = i.precio ?? '';
@@ -18225,6 +18232,12 @@
         if (!code) return false;
         const found = itemsMaestro.find(i => String(i.codigo) === code || String(i.ean || '') === code);
         if (!found) return false;
+        if (!(Number(found.precioConIgv || 0) > 0)) {
+          Swal.fire('Precio requerido', 'Este producto no tiene Precio con IGV configurado en Tabla Maestro y no puede usarse en la boleta.', 'warning');
+          document.getElementById('itemCodigo').value = '';
+          document.getElementById('itemPrecio').value = '';
+          return false;
+        }
 
         si.value = found.descripcion || '';
         document.getElementById('itemCodigo').value = found.codigo;
@@ -18241,6 +18254,11 @@
       function agregarItem() {
         const c = document.getElementById('itemCodigo').value, d = si.value, p = parseFloat(document.getElementById('itemPrecio').value) || 0, q = parseFloat(document.getElementById('itemCant').value) || 1, inc = document.getElementById('itemIncidencia').value;
         if (!c) { Swal.fire('Atención', 'Seleccione un ítem.', 'warning'); return; }
+        const maestroItem = itemsMaestro.find(i => String(i.codigo) === String(c));
+        if (!maestroItem || !(Number(maestroItem.precioConIgv || 0) > 0)) {
+          Swal.fire('Precio requerido', 'El producto seleccionado no tiene Precio con IGV configurado en Tabla Maestro. Asígnele ese precio antes de elaborar la boleta.', 'warning');
+          return;
+        }
         listaItemsCompra.push({ codigo: c, descripcion: d, precio: p, cantidad: q, subtotal: p * q, incidencia: inc });
         renderTabla();
         si.value = ''; document.getElementById('itemCodigo').value = ''; document.getElementById('itemPrecio').value = ''; document.getElementById('itemCant').value = 1; si.focus();
@@ -18251,7 +18269,7 @@
         let t = 0;
         b.innerHTML = listaItemsCompra.map((i, x) => {
           t += i.subtotal;
-          return `<tr><td><div class="small fw-bold">${i.descripcion}</div></td><td class="small">${i.incidencia}</td><td class="text-end small">${Number(i.precio).toFixed(2)}</td><td class="text-center small">${Number(i.cantidad)}</td><td class="text-end fw-bold small">${Number(i.subtotal).toFixed(2)}</td><td><button type="button" class="btn btn-sm text-danger p-0" onclick="listaItemsCompra.splice(${x},1);renderTabla()"><i class="bi bi-x-circle-fill"></i></button></td></tr>`;
+          return `<tr><td><div class="small fw-bold">${i.descripcion}</div><div class="small text-muted">Precio incluye IGV</div></td><td class="small">${i.incidencia}</td><td class="text-end small">${Number(i.precio).toFixed(2)}</td><td class="text-center small">${Number(i.cantidad)}</td><td class="text-end fw-bold small">${Number(i.subtotal).toFixed(2)}</td><td><button type="button" class="btn btn-sm text-danger p-0" onclick="listaItemsCompra.splice(${x},1);renderTabla()"><i class="bi bi-x-circle-fill"></i></button></td></tr>`;
         }).join('');
         document.getElementById('totalGeneral').innerText = "S/ " + t.toFixed(2);
       }
