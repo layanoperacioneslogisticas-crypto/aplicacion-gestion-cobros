@@ -10353,8 +10353,16 @@
       const modalTimelineEl = new bootstrap.Modal(document.getElementById('modalTimeline'), { backdrop: false });
       const modalAprobacionesEl = new bootstrap.Modal(document.getElementById('modalAprobaciones'));
       const modalAnularEl = new bootstrap.Modal(document.getElementById('modalAnularConfirm'));
-      const modalPagoAgrupadoEl = new bootstrap.Modal(document.getElementById('modalPagoAgrupado'));
-      const modalPagoDetalleEl = new bootstrap.Modal(document.getElementById('modalPagoDetalle'));
+      const modalPagoAgrupadoNode = document.getElementById('modalPagoAgrupado');
+      const modalPagoDetalleNode = document.getElementById('modalPagoDetalle');
+      if (modalPagoAgrupadoNode && modalPagoAgrupadoNode.parentElement !== document.body) {
+        document.body.appendChild(modalPagoAgrupadoNode);
+      }
+      if (modalPagoDetalleNode && modalPagoDetalleNode.parentElement !== document.body) {
+        document.body.appendChild(modalPagoDetalleNode);
+      }
+      const modalPagoAgrupadoEl = new bootstrap.Modal(modalPagoAgrupadoNode, { focus: true });
+      const modalPagoDetalleEl = new bootstrap.Modal(modalPagoDetalleNode, { focus: true });
       let pdfViewerLoadTimer = null;
       let pdfViewerLoadToken = 0;
       const flowToastEl = document.getElementById('flowToast');
@@ -11594,8 +11602,16 @@
         resetPagoAgrupadoForm_();
         const dateInput = document.getElementById('payDate');
         if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
-        modalPagoAgrupadoEl.show();
-        cargarCobrosElegiblesPago(true);
+        normalizeModalBackdrops();
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('padding-right');
+        requestAnimationFrame(() => {
+          modalPagoAgrupadoEl.show();
+          setTimeout(() => {
+            cargarCobrosElegiblesPago(true);
+          }, 60);
+        });
       }
 
       function getCobrosElegiblesPagoSearch_() {
