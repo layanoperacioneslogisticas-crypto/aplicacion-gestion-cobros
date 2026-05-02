@@ -3830,6 +3830,10 @@
       font-size: 14px;
     }
 
+    .flow-summary .summary-item.is-secondary {
+      opacity: .78;
+    }
+
     .flow-stepper-card {
       background: #ffffff;
       border: 1px solid rgba(0, 0, 0, 0.08);
@@ -4109,6 +4113,22 @@
       padding: 14px 16px 16px;
     }
 
+    .flow-modal.is-stage-payment .flow-summary {
+      padding: 12px 14px;
+    }
+
+    .flow-modal.is-stage-payment .flow-summary .summary-item.is-secondary {
+      display: none;
+    }
+
+    .flow-modal.is-stage-payment .flow-stepper-card {
+      padding: 12px 12px 10px;
+    }
+
+    .flow-modal.is-stage-payment .flow-step-label {
+      font-size: 9px;
+    }
+
     .flow-help-banner {
       border: 1px solid #9fd6f0;
       background: #cfeffc;
@@ -4144,6 +4164,20 @@
       border-color: #185fa5;
       background: #f8fbff;
       box-shadow: inset 0 0 0 1px rgba(24, 95, 165, 0.08);
+    }
+
+    .flow-modal.is-stage-payment .flow-pdf-grid .pdf-card:not(.flow-payment-priority) {
+      opacity: .48;
+      filter: grayscale(.08);
+      transform: scale(.985);
+    }
+
+    .flow-modal.is-stage-payment .flow-pdf-grid .pdf-card.flow-payment-priority {
+      opacity: 1;
+      border-style: solid;
+      border-color: #185fa5;
+      background: linear-gradient(180deg, #f8fbff, #eef5ff);
+      box-shadow: 0 12px 28px rgba(24, 95, 165, 0.18);
     }
 
     .pdf-card-head {
@@ -4235,6 +4269,121 @@
       white-space: nowrap;
     }
 
+    .flow-payment-focus {
+      border-color: rgba(24, 95, 165, 0.18);
+      background: linear-gradient(180deg, #fbfdff, #f7faff);
+    }
+
+    .flow-payment-hero {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr);
+      align-items: stretch;
+    }
+
+    .flow-payment-lane {
+      border: 1px solid rgba(24, 95, 165, 0.12);
+      border-radius: 16px;
+      background: #ffffff;
+      padding: 16px;
+    }
+
+    .flow-payment-lane-primary {
+      background: linear-gradient(180deg, #ffffff, #f8fbff);
+    }
+
+    .flow-payment-lane-grouped {
+      background: linear-gradient(180deg, #f8fbff, #eef5ff);
+    }
+
+    .flow-payment-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+      color: #0f274a;
+      font-weight: 800;
+    }
+
+    .flow-payment-title i {
+      color: #185fa5;
+    }
+
+    .flow-payment-subtitle {
+      color: #667085;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+
+    .flow-payment-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-bottom: 12px;
+    }
+
+    .flow-payment-field-card {
+      border: 1px solid #e5edf7;
+      border-radius: 14px;
+      background: #fff;
+      padding: 12px;
+    }
+
+    .flow-payment-focus .pdf-card {
+      min-height: 100%;
+    }
+
+    .flow-payment-guide {
+      border: 1px solid rgba(24, 95, 165, 0.12);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.78);
+      padding: 12px 14px;
+      color: #36527a;
+      font-size: 12px;
+      margin-bottom: 14px;
+    }
+
+    .flow-payment-choice {
+      border: 1px solid rgba(24, 95, 165, 0.14);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.9);
+      padding: 14px;
+    }
+
+    .flow-payment-choice+.flow-payment-choice {
+      margin-top: 12px;
+    }
+
+    .flow-payment-choice-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      color: #0f274a;
+      margin-bottom: 6px;
+    }
+
+    .flow-payment-choice-text {
+      color: #667085;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+
+    .flow-payment-choice-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .flow-payment-section-muted {
+      color: #667085;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
     #flowStageFields>[data-stage-only],
     #futureFields .flow-future-field {
       border: 1px solid rgba(0, 0, 0, 0.12);
@@ -4312,6 +4461,11 @@
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
+      justify-content: flex-end;
+    }
+
+    .flow-actions-row .spacer {
+      flex: 1 1 auto;
     }
 
     .flow-chip {
@@ -4519,6 +4673,14 @@
       .flow-sla-card.is-visible {
         flex-direction: column;
         align-items: flex-start;
+      }
+
+      .flow-payment-hero {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-payment-grid {
+        grid-template-columns: 1fr;
       }
 
       .flow-audit-sticky {
@@ -9587,7 +9749,7 @@
                       <div class="lbl">Monto</div>
                       <div class="val text-success" id="flowSumMonto">-</div>
                     </div>
-                    <div class="summary-item">
+                    <div class="summary-item is-secondary">
                       <div class="lbl">Fecha creación</div>
                       <div class="val" id="flowSumFecha">-</div>
                     </div>
@@ -9693,7 +9855,58 @@
                     </div>
                   </div>
 
-                  <div class="col-12 order-1">
+                  <div class="col-12 order-1 d-none" id="flowPaymentFocus">
+                    <div class="card flow-card flow-payment-focus">
+                      <div class="card-body">
+                        <div class="flow-payment-hero">
+                          <div class="flow-payment-lane flow-payment-lane-primary">
+                            <div class="flow-payment-title"><i class="bi bi-cash-coin"></i>Registro de pago</div>
+                            <div class="flow-payment-subtitle">
+                              Si este pago corresponde solo a esta boleta, regístralo aquí con número de operación, monto y constancia PDF.
+                            </div>
+                            <div class="flow-payment-grid">
+                              <div class="flow-payment-field-card" id="flowPaymentFieldHost"></div>
+                              <div class="flow-payment-field-card" id="flowPaymentAmountHost"></div>
+                            </div>
+                            <div class="flow-payment-section-muted">Constancia principal</div>
+                            <div id="flowPaymentPdfHost"></div>
+                          </div>
+                          <div class="flow-payment-lane flow-payment-lane-grouped">
+                            <div class="flow-payment-guide">
+                              Si una sola constancia cubre varias boletas, evita registrar el pago individual y usa el módulo de pagos agrupados.
+                            </div>
+                            <div class="flow-payment-choice">
+                              <div class="flow-payment-choice-title"><i class="bi bi-journal-check"></i>Registrar pago individual</div>
+                              <div class="flow-payment-choice-text">
+                                Completa aquí el número de operación, monto y PDF para cerrar esta boleta sin salir del flujo.
+                              </div>
+                              <div class="flow-payment-choice-actions">
+                                <button type="button" class="btn btn-primary btn-sm" onclick="guardarFlowData()">
+                                  <i class="bi bi-check2-circle me-1"></i> Guardar pago individual
+                                </button>
+                              </div>
+                            </div>
+                            <div class="flow-payment-choice">
+                              <div class="flow-payment-choice-title"><i class="bi bi-diagram-3"></i>O asociar a pago agrupado</div>
+                              <div class="flow-payment-choice-text">
+                                Usa Gestión de pagos cuando una misma constancia o número de operación aplique a varias boletas.
+                              </div>
+                              <div class="flow-payment-choice-actions">
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="abrirPagosDesdeFlow()">
+                                  <i class="bi bi-wallet2 me-1"></i> Abrir Gestión de pagos
+                                </button>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="crearPagoAgrupadoDesdeFlow()">
+                                  <i class="bi bi-plus-circle me-1"></i> Crear pago agrupado
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="col-12 order-2">
                     <div class="card flow-card h-100">
                       <div class="card-header bg-white border-0 pb-0 d-flex align-items-center gap-2">
                         <i class="bi bi-file-earmark-text-fill text-primary"></i>
@@ -9767,7 +9980,7 @@
                             </div>
                           </div>
 
-                          <div class="pdf-card" data-stages="9">
+                          <div class="pdf-card" data-stages="9" id="flowConstanciaCard">
                             <div class="pdf-card-head">
                               <div class="pdf-card-icon"><i class="bi bi-folder2-open"></i></div>
                               <button id="btnVerConstanciaPago" class="btn btn-outline-secondary btn-sm pdf-card-view"
@@ -9787,6 +10000,7 @@
                                 onclick="subirPdfFlujo('ConstanciaPagoUrl','gf_constanciaPagoFile','gf_constanciaPagoUrl','gf_lblConstanciaPago','btnVerConstanciaPago', this)">Subir</button>
                             </div>
                           </div>
+                          <div id="flowConstanciaCardPlaceholder" class="d-none"></div>
                         </div>
                       </div>
                     </div>
@@ -9824,9 +10038,9 @@
                   <div class="col-12 order-4">
                     <div class="card flow-card">
                       <div class="card-header bg-white border-0 d-flex align-items-center">
-                        <button class="btn btn-sm btn-link text-decoration-none fw-bold px-0" type="button"
+                        <button class="btn btn-sm btn-link text-decoration-none fw-bold px-0" type="button" id="futureFieldsToggleLabel"
                           data-bs-toggle="collapse" data-bs-target="#futureFields">Campos posteriores</button>
-                        <span class="small text-muted ms-2">Se habilitan según la etapa</span>
+                        <span class="small text-muted ms-2" id="futureFieldsToggleHint">Se habilitan según la etapa</span>
                       </div>
                       <div id="futureFields" class="collapse show">
                         <div class="card-body">
@@ -9851,16 +10065,18 @@
                               <input id="gf_liquidacionRef" class="form-control form-control-sm" data-min-stage="8"
                                 placeholder="Referencia de liquidación">
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-4" id="flowDebitoFieldWrap">
                               <label class="form-label small fw-bold">Número de operación</label>
                               <input id="gf_debitoRef" class="form-control form-control-sm" data-min-stage="9"
                                 placeholder="Número de operación del pago">
                             </div>
-                            <div class="col-md-4">
+                            <div id="flowDebitoFieldPlaceholder" class="d-none"></div>
+                            <div class="col-md-4" id="flowMontoFieldWrap">
                               <label class="form-label small fw-bold">Monto de pago</label>
                               <input id="gf_montoPago" type="number" step="0.01" min="0.01" class="form-control form-control-sm" data-min-stage="9"
                                 placeholder="Ej: 1500.00">
                             </div>
+                            <div id="flowMontoFieldPlaceholder" class="d-none"></div>
                             <div class="col-md-4">
                               <label class="form-label small fw-bold">Aplicación de pago</label>
                               <input id="gf_facturasDebitar" class="form-control form-control-sm" data-min-stage="10"
@@ -9907,15 +10123,15 @@
         <div class="modal-footer">
           <div class="flow-actions-shell w-100">
             <div class="flow-actions-row">
-              <button type="button" class="btn flow-chip" data-bs-dismiss="modal">Cerrar</button>
               <button type="button" class="btn flow-chip" id="btnIniciarFlujoFlow" onclick="iniciarFlujoCobroFlow()"
                 style="display:none;">
                 <i class="bi bi-play-circle me-1"></i>Iniciar flujo
               </button>
+              <div class="spacer"></div>
+              <button type="button" class="btn flow-chip flow-chip-primary" id="btnGuardarFlow"
+                onclick="guardarFlowData()">Guardar etapa</button>
               <button type="button" class="btn flow-chip flow-chip-warn" id="btnFlowObservado"
-                onclick="marcarObservadoFlow()">
-                Marcar observado y regresar
-              </button>
+                onclick="marcarObservadoFlow()">Marcar observado y regresar</button>
               <button type="button" class="btn flow-chip flow-chip-ghost" id="btnFlowTimelineInline"
                 onclick="abrirTimelineFlotanteFlow()">
                 Ver timeline
@@ -9930,8 +10146,7 @@
                       onclick="anularCobroFlow()">Anular cobro</button></li>
                 </ul>
               </div>
-              <button type="button" class="btn flow-chip flow-chip-primary" id="btnGuardarFlow"
-                onclick="guardarFlowData()">Guardar cambios</button>
+              <button type="button" class="btn flow-chip" data-bs-dismiss="modal">Cerrar</button>
             </div>
           </div>
         </div>
@@ -11117,6 +11332,56 @@
         setText('flowSumEtapa', flowData.etapa || '-');
       }
 
+      function moveFlowNodeToHost_(elementId, hostId) {
+        const el = document.getElementById(elementId);
+        const host = document.getElementById(hostId);
+        if (!el || !host || el.parentElement === host) return;
+        host.appendChild(el);
+      }
+
+      function restoreFlowNodeFromPlaceholder_(elementId, placeholderId) {
+        const el = document.getElementById(elementId);
+        const placeholder = document.getElementById(placeholderId);
+        if (!el || !placeholder || !placeholder.parentElement) return;
+        if (el.parentElement === placeholder.parentElement && el.nextSibling === placeholder) return;
+        placeholder.parentElement.insertBefore(el, placeholder);
+      }
+
+      function syncFlowPaymentLayout_(idx) {
+        const modalContent = document.querySelector('#modalFlow .flow-modal');
+        const paymentFocus = document.getElementById('flowPaymentFocus');
+        const constanciaCard = document.getElementById('flowConstanciaCard');
+        const futureLabel = document.getElementById('futureFieldsToggleLabel');
+        const futureHint = document.getElementById('futureFieldsToggleHint');
+        const isPaymentStage = Number(idx) === 9;
+        const isApplyStage = Number(idx) === 10;
+
+        if (modalContent) {
+          modalContent.classList.toggle('is-stage-payment', isPaymentStage);
+        }
+
+        if (paymentFocus) paymentFocus.classList.toggle('d-none', !isPaymentStage);
+        if (constanciaCard) constanciaCard.classList.toggle('flow-payment-priority', isPaymentStage);
+
+        if (isPaymentStage) {
+          moveFlowNodeToHost_('flowDebitoFieldWrap', 'flowPaymentFieldHost');
+          moveFlowNodeToHost_('flowMontoFieldWrap', 'flowPaymentAmountHost');
+          moveFlowNodeToHost_('flowConstanciaCard', 'flowPaymentPdfHost');
+          if (futureLabel) futureLabel.textContent = 'Datos complementarios';
+          if (futureHint) futureHint.textContent = 'Referencias posteriores y datos de cierre del caso.';
+        } else {
+          restoreFlowNodeFromPlaceholder_('flowDebitoFieldWrap', 'flowDebitoFieldPlaceholder');
+          restoreFlowNodeFromPlaceholder_('flowMontoFieldWrap', 'flowMontoFieldPlaceholder');
+          restoreFlowNodeFromPlaceholder_('flowConstanciaCard', 'flowConstanciaCardPlaceholder');
+          if (futureLabel) futureLabel.textContent = isApplyStage ? 'Datos de cierre' : 'Campos posteriores';
+          if (futureHint) {
+            futureHint.textContent = isApplyStage
+              ? 'Completa la referencia de aplicación y el cierre del pago.'
+              : 'Se habilitan según la etapa';
+          }
+        }
+      }
+
       function getCurrentFlowContext_() {
         const id = String(document.getElementById('gf_id')?.value || '').trim();
         const cacheRow = (gestionRowsCache || []).find(x => String(x?.id || '').trim() === id) || {};
@@ -11144,7 +11409,7 @@
         const wrap = document.getElementById('flowPaymentBridge');
         if (!wrap) return;
         const idx = parseEtapaIdx(flowData?.etapa || document.getElementById('gf_etapa')?.value || '');
-        const show = idx >= 9;
+        const show = idx >= 10;
         wrap.classList.toggle('d-none', !show);
         if (!show) return;
 
@@ -11184,6 +11449,7 @@
       function applyFlowUi(etapaStr, cacheRow, flowData) {
         const idx = parseEtapaIdx(etapaStr);
         flowStageCatalogCurrent = Array.isArray(flowData?.stageCatalog) ? flowData.stageCatalog.slice() : [];
+        syncFlowPaymentLayout_(idx);
         renderFlowStepper(idx, flowData || {});
         renderFlowProgress(idx);
         renderFlowHelp(idx);
