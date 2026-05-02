@@ -206,6 +206,13 @@ async function listFrontendProviders(actorCountry) {
   return (data || []).map(mapProviderRecord);
 }
 
+async function adminGetProveedoresSpecial(args) {
+  const actorEmail = args?.[0];
+  const profile = await getCatalogActorProfile(actorEmail);
+  if (!profile?.email) return [];
+  return listFrontendProviders(profile.countryCode);
+}
+
 function normalizeLooseBoolean(value, fallback = true) {
   if (typeof value === 'boolean') return value;
   if (value == null || value === '') return !!fallback;
