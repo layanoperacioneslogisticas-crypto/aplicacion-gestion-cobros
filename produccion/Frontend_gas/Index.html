@@ -15277,7 +15277,7 @@
           uxc: parseLooseNumberUi_(item.uxc),
           precioConIgv: precioConIgv,
           precioSinIgv: precioSinIgv,
-          precio: precioDirecto || precioSinIgv || precioConIgv || 0,
+          precio: precioDirecto || precioConIgv || precioSinIgv || 0,
           ean: String(item.ean || '').trim(),
           activo: parseLooseBoolUi_(item.activo, true),
           countryCode: String(item.countryCode || item.CountryCode || '').trim().toUpperCase()

@@ -885,7 +885,7 @@ function mapMaestroRawRow_(row, rowNum, maestroMeta) {
         uxc: Number(raw[2] || 0),
         precioConIgv: precioConIgv,
         precioSinIgv: precioSinIgv,
-        precio: precioSinIgv || precioConIgv || 0,
+        precio: precioConIgv || precioSinIgv || 0,
         ean: String(raw[5] || '').trim(),
         activo: parseBoolLoose_(raw[6], true),
         countryCode: resolveCatalogCountryCode_(maestroCell_(raw, maestroMeta || buildMaestroHeaderMeta_(MAESTRO_HEADERS), 'countryCode', 7))
@@ -984,7 +984,7 @@ function mapMaestroRow_(row, rowNum, maestroMeta) {
         uxc: Number(maestroCell_(row, meta, 'uxc', 2) || 0),
         precioConIgv: precioConIgv,
         precioSinIgv: precioSinIgv,
-        precio: precioSinIgv || precioConIgv || 0,
+        precio: precioConIgv || precioSinIgv || 0,
         ean: String(maestroCell_(row, meta, 'ean', 5) || '').trim(),
         activo: parseBoolLoose_(maestroCell_(row, meta, 'activo', 6), true),
         countryCode: resolveCatalogCountryCode_(maestroCell_(row, meta, 'countryCode', 7))

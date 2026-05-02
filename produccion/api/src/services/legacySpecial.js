@@ -156,7 +156,7 @@ function mapMasterItemRecord(row) {
     uxc: Number(row?.uxc || 0),
     precioConIgv,
     precioSinIgv,
-    precio: precioSinIgv || precioConIgv || 0,
+    precio: precioConIgv || precioSinIgv || 0,
     ean: String(row?.ean || '').trim(),
     activo: Boolean(row?.activo),
     countryCode: normalizeCountryCode(row?.country_code)
