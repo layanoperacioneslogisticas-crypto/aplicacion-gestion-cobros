@@ -9872,6 +9872,32 @@
                     </div>
                   </div>
 
+                  <div class="col-12 order-5 d-none" id="flowPaymentBridge">
+                    <div class="card flow-card border-primary-subtle">
+                      <div class="card-body">
+                        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+                          <div>
+                            <div class="small text-uppercase fw-bold text-primary mb-1">Integración con Gestión de pagos</div>
+                            <div class="fw-semibold" id="flowPaymentBridgeTitle">Gestiona esta boleta desde el módulo de pagos agrupados</div>
+                            <div class="small text-muted mt-1" id="flowPaymentBridgeText">
+                              Usa Gestión de pagos cuando una constancia cubra una o varias boletas.
+                            </div>
+                          </div>
+                          <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="btnFlowOpenPayments"
+                              onclick="abrirPagosDesdeFlow()">
+                              <i class="bi bi-wallet2 me-1"></i> Abrir Gestión de pagos
+                            </button>
+                            <button type="button" class="btn btn-primary btn-sm" id="btnFlowCreateGroupedPayment"
+                              onclick="crearPagoAgrupadoDesdeFlow()">
+                              <i class="bi bi-plus-circle me-1"></i> Crear pago agrupado con esta boleta
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
               </div>
             </div>
@@ -10140,6 +10166,7 @@
       let pagosEligibleRowsCache = [];
       let pagosLoadInFlight = false;
       let pagosEligibleLoadInFlight = false;
+      let pagoAgrupadoDraftContext = null;
       let maestroImportState = { items: [], fileName: '', sheetName: '', totalRows: 0, skippedRows: 0, headerDetected: false };
       let dashboardCharts = {};
       let currentWorkspaceModule = 'panel';
@@ -11090,6 +11117,70 @@
         setText('flowSumEtapa', flowData.etapa || '-');
       }
 
+      function getCurrentFlowContext_() {
+        const id = String(document.getElementById('gf_id')?.value || '').trim();
+        const cacheRow = (gestionRowsCache || []).find(x => String(x?.id || '').trim() === id) || {};
+        const monto = Number(
+          cacheRow?.monto ||
+          cacheRow?.totalCobro ||
+          document.getElementById('gf_montoPago')?.value ||
+          0
+        );
+        return {
+          id,
+          etapa: String(document.getElementById('gf_etapa')?.value || '').trim(),
+          proveedor: String(cacheRow?.proveedor || '').trim(),
+          proveedorCodigo: String(cacheRow?.proveedorCodigo || '').trim(),
+          ruta: String(cacheRow?.ruta || '').trim(),
+          unidad: String(cacheRow?.unidad || '').trim(),
+          totalCobro: monto,
+          debitoRef: String(document.getElementById('gf_debitoRef')?.value || '').trim(),
+          montoPago: Number(document.getElementById('gf_montoPago')?.value || 0),
+          constanciaPagoUrl: String(document.getElementById('gf_constanciaPagoUrl')?.value || '').trim()
+        };
+      }
+
+      function updateFlowPaymentBridgeUi(flowData, cacheRow) {
+        const wrap = document.getElementById('flowPaymentBridge');
+        if (!wrap) return;
+        const idx = parseEtapaIdx(flowData?.etapa || document.getElementById('gf_etapa')?.value || '');
+        const show = idx >= 9;
+        wrap.classList.toggle('d-none', !show);
+        if (!show) return;
+
+        const ctx = getCurrentFlowContext_();
+        const titleEl = document.getElementById('flowPaymentBridgeTitle');
+        const textEl = document.getElementById('flowPaymentBridgeText');
+        const createBtn = document.getElementById('btnFlowCreateGroupedPayment');
+        const openBtn = document.getElementById('btnFlowOpenPayments');
+        const totalText = ctx.totalCobro > 0 ? fmtMoney(ctx.totalCobro) : 'sin monto';
+        const hasPaymentData = !!(ctx.debitoRef || ctx.constanciaPagoUrl || ctx.montoPago > 0);
+
+        if (idx === 9) {
+          if (titleEl) titleEl.textContent = 'Registra aquí el pago real si esta boleta comparte constancia con otras.';
+          if (textEl) {
+            textEl.textContent = hasPaymentData
+              ? `Boleta ${ctx.id || '-'} preparada para pago. Operación actual: ${ctx.debitoRef || 'pendiente'} · Monto: ${ctx.montoPago > 0 ? fmtMoney(ctx.montoPago) : totalText}.`
+              : `Boleta ${ctx.id || '-'} lista para asociarse a un pago agrupado. Monto de referencia: ${totalText}.`;
+          }
+          if (createBtn) {
+            createBtn.disabled = false;
+            createBtn.innerHTML = '<i class="bi bi-plus-circle me-1"></i> Crear pago agrupado con esta boleta';
+          }
+          if (openBtn) openBtn.innerHTML = '<i class="bi bi-wallet2 me-1"></i> Abrir Gestión de pagos';
+        } else {
+          if (titleEl) titleEl.textContent = 'Esta boleta ya está en aplicación de pago.';
+          if (textEl) {
+            textEl.textContent = `Revisa el pago asociado desde Gestión de pagos. Operación: ${ctx.debitoRef || 'sin referencia'} · Monto aplicado: ${ctx.montoPago > 0 ? fmtMoney(ctx.montoPago) : totalText}.`;
+          }
+          if (createBtn) {
+            createBtn.disabled = true;
+            createBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Pago agrupado ya gestionado';
+          }
+          if (openBtn) openBtn.innerHTML = '<i class="bi bi-search me-1"></i> Ver pago en Gestión de pagos';
+        }
+      }
+
       function applyFlowUi(etapaStr, cacheRow, flowData) {
         const idx = parseEtapaIdx(etapaStr);
         flowStageCatalogCurrent = Array.isArray(flowData?.stageCatalog) ? flowData.stageCatalog.slice() : [];
@@ -11103,6 +11194,7 @@
         updateSlaBanner(idx, cacheRow || {}, flowData || {});
         updateFlowStartButtonUi(etapaStr);
         updateFlowActionButtonsUi(flowData || {});
+        updateFlowPaymentBridgeUi(flowData || {}, cacheRow || {});
       }
 
       function updateFlowStartButtonUi(etapaStr) {
@@ -11655,10 +11747,24 @@
         updatePagoAgrupadoSummary_();
       }
 
-      function abrirNuevoPagoAgrupado() {
+      function abrirNuevoPagoAgrupado(options) {
+        const cfg = options && typeof options === 'object' ? options : {};
         resetPagoAgrupadoForm_();
         const dateInput = document.getElementById('payDate');
         if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
+        if (cfg.searchQuery) {
+          const searchInput = document.getElementById('payCobroSearch');
+          if (searchInput) searchInput.value = String(cfg.searchQuery || '');
+        }
+        if (cfg.totalAmount > 0) {
+          const totalInput = document.getElementById('payTotalAmount');
+          if (totalInput) totalInput.value = Number(cfg.totalAmount || 0).toFixed(2);
+        }
+        if (cfg.notes) {
+          const notesInput = document.getElementById('payNotes');
+          if (notesInput) notesInput.value = String(cfg.notes || '');
+        }
+        pagoAgrupadoDraftContext = cfg && cfg.cobroId ? Object.assign({}, cfg) : null;
         normalizeModalBackdrops();
         document.body.classList.remove('modal-open');
         document.body.style.removeProperty('overflow');
@@ -11700,6 +11806,26 @@
         const amount = document.getElementById('payAmountSummary');
         if (summary) summary.textContent = `${fmtNum(selected.length)} boletas seleccionadas`;
         if (amount) amount.textContent = `Asignado: ${fmtMoney(totalAssigned)}`;
+      }
+
+      function applyPagoAgrupadoDraftContext_() {
+        const ctx = pagoAgrupadoDraftContext;
+        if (!ctx || !ctx.cobroId || !Array.isArray(pagosEligibleRowsCache) || !pagosEligibleRowsCache.length) return;
+        let selectedCount = 0;
+        pagosEligibleRowsCache.forEach((row) => {
+          const isTarget = String(row?.id || '').trim() === String(ctx.cobroId || '').trim();
+          row._selected = isTarget;
+          if (isTarget) {
+            const suggested = Number(ctx.suggestedAmount || row.saldoPendiente || row.totalCobro || 0);
+            row._paymentAmount = suggested > 0 ? suggested : 0;
+            selectedCount += 1;
+          }
+        });
+        if (selectedCount > 0 && ctx.totalAmount > 0) {
+          const totalInput = document.getElementById('payTotalAmount');
+          if (totalInput) totalInput.value = Number(ctx.totalAmount || 0).toFixed(2);
+        }
+        pagoAgrupadoDraftContext = null;
       }
 
       function renderCobrosElegiblesPago(rows) {
@@ -11765,6 +11891,7 @@
             _paymentAmount: Number(row.saldoPendiente || 0) > 0 ? Number(row.saldoPendiente || 0) : 0
           }));
           pagosEligibleRowsCache = rows;
+          applyPagoAgrupadoDraftContext_();
           setUiCacheData_('pagosElegibles', rows.map(row => Object.assign({}, row)));
           renderCobrosElegiblesPago(rows);
         }).withFailureHandler(err => {
@@ -11777,6 +11904,38 @@
 
       function filtrarCobrosElegiblesPago() {
         renderCobrosElegiblesPago(pagosEligibleRowsCache);
+      }
+
+      function abrirPagosDesdeFlow() {
+        const ctx = getCurrentFlowContext_();
+        modalFlowEl.hide();
+        abrirPagos();
+        const searchInput = document.getElementById('pTexto');
+        const query = ctx.debitoRef || ctx.id || '';
+        if (searchInput) searchInput.value = query;
+        setTimeout(() => {
+          renderPagos(pagosRowsCache);
+          window.scrollTo(0, 0);
+        }, 140);
+      }
+
+      function crearPagoAgrupadoDesdeFlow() {
+        const ctx = getCurrentFlowContext_();
+        if (!ctx.id) {
+          Swal.fire('Error', 'No se pudo identificar la boleta actual.', 'error');
+          return;
+        }
+        modalFlowEl.hide();
+        abrirPagos();
+        setTimeout(() => {
+          abrirNuevoPagoAgrupado({
+            cobroId: ctx.id,
+            searchQuery: ctx.id,
+            totalAmount: ctx.totalCobro > 0 ? ctx.totalCobro : ctx.montoPago,
+            suggestedAmount: ctx.totalCobro > 0 ? ctx.totalCobro : ctx.montoPago,
+            notes: `Pago agrupado iniciado desde boleta ${ctx.id}${ctx.proveedor ? ' · ' + ctx.proveedor : ''}`
+          });
+        }, 180);
       }
 
       function togglePagoCobroSelection_(index, checked) {
