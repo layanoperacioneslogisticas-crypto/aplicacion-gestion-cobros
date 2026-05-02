@@ -4719,6 +4719,7 @@
     #maestroContainer.container-app,
     #pilotosContainer.container-app,
     #configContainer.container-app,
+    #pagosContainer.container-app,
     #gestionContainer.container-app,
     #facturacionTransporteContainer.container-app {
       background: var(--workspace-surface);
@@ -4734,6 +4735,7 @@
     #maestroContainer.container-app,
     #pilotosContainer.container-app,
     #configContainer.container-app,
+    #pagosContainer.container-app,
     #gestionContainer.container-app,
     #facturacionTransporteContainer.container-app {
       border-radius: 28px;
@@ -5040,6 +5042,7 @@
       #maestroContainer.container-app,
       #pilotosContainer.container-app,
       #configContainer.container-app,
+      #pagosContainer.container-app,
       #gestionContainer.container-app,
       #facturacionTransporteContainer.container-app {
         margin-left: calc(var(--workspace-sidebar-rail) + var(--workspace-module-gap));
@@ -5065,6 +5068,7 @@
       body.workspace-sidebar-collapsed #maestroContainer.container-app,
       body.workspace-sidebar-collapsed #pilotosContainer.container-app,
       body.workspace-sidebar-collapsed #configContainer.container-app,
+      body.workspace-sidebar-collapsed #pagosContainer.container-app,
       body.workspace-sidebar-collapsed #gestionContainer.container-app,
       body.workspace-sidebar-collapsed #facturacionTransporteContainer.container-app {
         margin-left: 0;
@@ -5105,6 +5109,7 @@
       #maestroContainer.container-app,
       #pilotosContainer.container-app,
       #configContainer.container-app,
+      #pagosContainer.container-app,
       #gestionContainer.container-app,
       #facturacionTransporteContainer.container-app {
         margin-left: 0;
@@ -6267,6 +6272,7 @@
       #maestroContainer.container-app,
       #pilotosContainer.container-app,
       #configContainer.container-app,
+      #pagosContainer.container-app,
       #gestionContainer.container-app,
       #facturacionTransporteContainer.container-app) {
       background: transparent !important;
@@ -6287,6 +6293,7 @@
       #maestroContainer,
       #facturacionTransporteContainer,
       #pilotosContainer,
+      #pagosContainer,
       #configContainer) .module-topbar {
       margin-bottom: 18px;
       padding: 19px 22px;
@@ -6304,6 +6311,7 @@
       #maestroContainer,
       #facturacionTransporteContainer,
       #pilotosContainer,
+      #pagosContainer,
       #configContainer) .module-topbar-title {
       font-size: clamp(1.82rem, 2.15vw, 2.35rem);
       letter-spacing: -0.05em;
@@ -6318,6 +6326,7 @@
       #maestroContainer,
       #facturacionTransporteContainer,
       #pilotosContainer,
+      #pagosContainer,
       #configContainer) .module-topbar-sub {
       font-size: 13px;
       color: #6e829c;
@@ -6331,6 +6340,7 @@
       #maestroContainer,
       #facturacionTransporteContainer,
       #pilotosContainer,
+      #pagosContainer,
       #configContainer) .module-topbar-actions .btn {
       min-height: 44px;
       padding-inline: 16px;
@@ -6349,6 +6359,7 @@
       #maestroContainer,
       #facturacionTransporteContainer,
       #pilotosContainer,
+      #pagosContainer,
       #configContainer) .module-topbar-actions .btn.btn-primary {
       background: linear-gradient(135deg, #1e5ce5 0%, #4c76ff 100%);
       border-color: transparent;
@@ -6364,6 +6375,7 @@
       #maestroContainer,
       #facturacionTransporteContainer,
       #pilotosContainer,
+      #pagosContainer,
       #configContainer) .module-topbar-actions .btn.btn-outline-secondary,
     :is(#cobroContainer,
       #historialContainer,
@@ -6373,6 +6385,7 @@
       #maestroContainer,
       #facturacionTransporteContainer,
       #pilotosContainer,
+      #pagosContainer,
       #configContainer) .module-topbar-actions .btn.btn-outline-primary,
     :is(#cobroContainer,
       #historialContainer,
@@ -6382,9 +6395,77 @@
       #maestroContainer,
       #facturacionTransporteContainer,
       #pilotosContainer,
+      #pagosContainer,
       #configContainer) .module-topbar-actions .btn.btn-outline-success {
       background: #ffffff;
       color: #5c708b;
+    }
+
+    #pagosContainer .pagos-table-wrap {
+      border-radius: 24px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid #dbe6f2;
+      box-shadow: 0 12px 24px rgba(32, 55, 88, 0.06);
+    }
+
+    #pagosContainer .pagos-summary-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 12px 16px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #f7fbff, #eef4ff);
+      border: 1px solid #d9e5f4;
+      color: #58708f;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    #modalPagoAgrupado,
+    #modalPagoDetalle {
+      z-index: 1065;
+    }
+
+    #modalPagoAgrupado .modal-dialog,
+    #modalPagoDetalle .modal-dialog {
+      max-width: min(96vw, 1320px);
+    }
+
+    #modalPagoAgrupado .modal-content,
+    #modalPagoDetalle .modal-content {
+      border: 1px solid #dfe8f5;
+      border-radius: 22px;
+      box-shadow: 0 24px 54px rgba(11, 28, 55, 0.22);
+      overflow: hidden;
+    }
+
+    #modalPagoAgrupado .modal-header,
+    #modalPagoDetalle .modal-header {
+      background: linear-gradient(180deg, #fbfdff, #f4f8ff);
+      border-bottom: 1px solid #e3ebf6;
+      padding: 18px 22px;
+    }
+
+    #modalPagoAgrupado .modal-body,
+    #modalPagoDetalle .modal-body {
+      background: #ffffff;
+      padding: 20px 22px 22px;
+    }
+
+    #modalPagoAgrupado .modal-footer,
+    #modalPagoDetalle .modal-footer {
+      border-top: 1px solid #e3ebf6;
+      padding: 16px 22px 20px;
+      background: #fbfcff;
+    }
+
+    #modalPagoAgrupado .card.bg-light {
+      background: linear-gradient(135deg, #f8fbff, #eef4ff) !important;
+      border: 1px solid #dbe6f2 !important;
+      border-radius: 18px;
     }
 
     :is(#cobroContainer,
@@ -7613,23 +7694,26 @@
         </div>
       </div>
 
-      <div class="card border-0 shadow-sm mb-3">
-        <div class="card-body">
-          <div class="row g-2 align-items-end">
-            <div class="col-12 col-lg-8">
-              <label class="small fw-bold text-muted">Buscar pago</label>
-              <input id="pTexto" class="form-control" placeholder="Número de operación, ID de pago, proveedor o boleta asociada">
-            </div>
-            <div class="col-12 col-lg-4">
-              <button class="btn btn-primary w-100 fw-bold" type="button" onclick="cargarPagos(true)">
-                <i class="bi bi-search me-2"></i> Buscar pagos
-              </button>
-            </div>
+      <div class="module-searchbar">
+        <div class="module-searchbar-inner">
+          <span class="module-searchbar-icon"><i class="bi bi-cash-coin"></i></span>
+          <div class="module-searchbar-copy">
+            <div class="module-searchbar-title">Buscar pagos</div>
+            <div class="module-searchbar-sub">Consulta por número de operación, ID de pago, proveedor o boleta asociada.</div>
+          </div>
+          <div class="module-searchbar-field">
+            <span class="module-searchbar-field-icon"><i class="bi bi-search"></i></span>
+            <input type="search" class="module-searchbar-input" id="pTexto" placeholder="Escribe para buscar en toda la tabla de pagos">
           </div>
         </div>
       </div>
 
-      <div class="table-responsive border rounded bg-white">
+      <div class="pagos-summary-strip">
+        <span>Pagos agrupados registrados</span>
+        <span>Control centralizado de constancias y aplicación por boleta</span>
+      </div>
+
+      <div class="table-responsive pagos-table-wrap">
         <table class="table table-sm table-hover mb-0 align-middle">
           <thead class="table-light">
             <tr>
@@ -9908,7 +9992,7 @@
     </div>
 
     <div class="modal fade" id="modalPagoAgrupado" tabindex="-1">
-      <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title fw-bold">Nuevo pago agrupado</h5>
@@ -9993,7 +10077,7 @@
     </div>
 
     <div class="modal fade" id="modalPagoDetalle" tabindex="-1">
-      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title fw-bold" id="pagoDetalleTitle">Detalle de pago</h5>
@@ -10298,6 +10382,12 @@
           setTimeout(() => cleanupPdfViewerUi(), 60);
         });
       }
+      document.getElementById('modalPagoAgrupado').addEventListener('hidden.bs.modal', () => {
+        normalizeModalBackdrops();
+      });
+      document.getElementById('modalPagoDetalle').addEventListener('hidden.bs.modal', () => {
+        normalizeModalBackdrops();
+      });
       document.getElementById('modalFlow').addEventListener('hidden.bs.modal', () => {
         flowTimelineModalOpen = false;
         stopFlowTimelineLoops();
