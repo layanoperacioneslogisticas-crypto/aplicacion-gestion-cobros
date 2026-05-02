@@ -1,6 +1,12 @@
 import { Router } from 'express';
 import { getGasRuntime } from '../gas/runtime.js';
 import { executeLegacySpecial } from '../services/legacySpecial.js';
+import {
+  createGroupedPaymentModule,
+  getPaymentDetailModule,
+  listEligiblePaymentCobrosModule,
+  listPaymentsModule
+} from '../services/paymentsModule.js';
 
 const SPECIAL_METHODS = new Set([
   'getPdfRootMeta',
@@ -235,6 +241,35 @@ appApiRouter.post('/gestion/pdfs/zip', jsonRoute((req) => {
     optionalString(req.body?.actorEmail),
     req.body?.actorCtx || {}
   ], req);
+}));
+
+appApiRouter.get('/payments', jsonRoute((req) => {
+  return listPaymentsModule({
+    actorEmail: optionalString(req.query.actorEmail),
+    q: optionalString(req.query.q)
+  });
+}));
+
+appApiRouter.get('/payments/eligible-cobros', jsonRoute((req) => {
+  return listEligiblePaymentCobrosModule({
+    actorEmail: optionalString(req.query.actorEmail),
+    q: optionalString(req.query.q)
+  });
+}));
+
+appApiRouter.get('/payments/:id', jsonRoute((req) => {
+  return getPaymentDetailModule({
+    actorEmail: optionalString(req.query.actorEmail),
+    paymentId: requiredString(req.params.id, 'ID de pago requerido.')
+  });
+}));
+
+appApiRouter.post('/payments', jsonRoute((req) => {
+  return createGroupedPaymentModule({
+    actorEmail: optionalString(req.body?.actorEmail),
+    payment: req.body?.payment || {},
+    req
+  });
 }));
 
 appApiRouter.get('/cobros/:id/timeline', jsonRoute((req) => {

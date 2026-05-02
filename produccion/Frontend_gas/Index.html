@@ -7103,6 +7103,12 @@
                 <i class="bi bi-chevron-right"></i>
               </button>
             </div>
+            <div class="sidebar-module-wrap" id="modPagosWrapper" style="display:none;">
+              <button type="button" id="sbBtnPagos" class="sidebar-module-btn" onclick="abrirPagos()">
+                <span><i class="bi bi-cash-coin me-2"></i>Gestión de pagos</span>
+                <i class="bi bi-chevron-right"></i>
+              </button>
+            </div>
             <div class="sidebar-module-wrap" id="modHistorialWrapper">
               <button type="button" id="sbBtnHistorial" class="sidebar-module-btn" onclick="abrirHistorial()">
                 <span><i class="bi bi-clock-history me-2"></i>Historial</span>
@@ -7585,6 +7591,64 @@
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <div class="container-app" id="pagosContainer">
+      <div class="module-topbar">
+        <div class="module-topbar-copy">
+          <h4 class="module-topbar-title">Gestión de pagos</h4>
+          <div class="module-topbar-sub">Asocia una sola constancia de pago a múltiples boletas y controla la distribución por monto.</div>
+        </div>
+        <div class="module-topbar-actions">
+          <button class="btn btn-primary btn-sm rounded-pill" type="button" onclick="abrirNuevoPagoAgrupado()">
+            <i class="bi bi-plus-circle me-1"></i> Nuevo pago agrupado
+          </button>
+          <button class="btn btn-outline-primary btn-sm rounded-pill" type="button" onclick="cargarPagos(true)">
+            <i class="bi bi-arrow-clockwise"></i> Actualizar
+          </button>
+          <button class="btn btn-outline-secondary btn-sm rounded-pill" type="button" onclick="mostrarPanel()">
+            <i class="bi bi-arrow-left"></i> Volver
+          </button>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+          <div class="row g-2 align-items-end">
+            <div class="col-12 col-lg-8">
+              <label class="small fw-bold text-muted">Buscar pago</label>
+              <input id="pTexto" class="form-control" placeholder="Número de operación, ID de pago, proveedor o boleta asociada">
+            </div>
+            <div class="col-12 col-lg-4">
+              <button class="btn btn-primary w-100 fw-bold" type="button" onclick="cargarPagos(true)">
+                <i class="bi bi-search me-2"></i> Buscar pagos
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-responsive border rounded bg-white">
+        <table class="table table-sm table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>ID Pago</th>
+              <th>N° Operación</th>
+              <th>Fecha pago</th>
+              <th class="text-end">Monto total</th>
+              <th class="text-center">Boletas</th>
+              <th>Proveedores</th>
+              <th>Estado</th>
+              <th class="text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="pagosBody">
+            <tr>
+              <td colspan="8" class="text-center py-4 text-muted">Sin pagos cargados.</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -9843,6 +9907,105 @@
       </div>
     </div>
 
+    <div class="modal fade" id="modalPagoAgrupado" tabindex="-1">
+      <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title fw-bold">Nuevo pago agrupado</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row g-3 mb-3">
+              <div class="col-md-4">
+                <label class="form-label small fw-bold">Número de operación</label>
+                <input id="payOperationNumber" class="form-control" placeholder="Ej: OP-458721">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold">Fecha de pago</label>
+                <input id="payDate" type="date" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold">Monto total</label>
+                <input id="payTotalAmount" type="number" step="0.01" min="0.01" class="form-control" placeholder="0.00">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small fw-bold">PDF constancia</label>
+                <input id="payConstanciaFile" type="file" class="form-control" accept=".pdf,application/pdf">
+              </div>
+              <div class="col-12">
+                <label class="form-label small fw-bold">Notas</label>
+                <textarea id="payNotes" class="form-control" rows="2" placeholder="Observaciones del pago agrupado"></textarea>
+              </div>
+            </div>
+
+            <div class="card border-0 bg-light mb-3">
+              <div class="card-body">
+                <div class="row g-2 align-items-end">
+                  <div class="col-md-8">
+                    <label class="form-label small fw-bold">Buscar boletas elegibles</label>
+                    <input id="payCobroSearch" class="form-control" placeholder="ID, proveedor, ruta o unidad">
+                  </div>
+                  <div class="col-md-4">
+                    <button class="btn btn-outline-primary w-100" type="button" onclick="cargarCobrosElegiblesPago(true)">
+                      <i class="bi bi-arrow-clockwise me-1"></i> Recargar boletas
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center small text-muted mb-2">
+              <span id="paySelectedSummary">0 boletas seleccionadas</span>
+              <span id="payAmountSummary">Asignado: S/ 0.00</span>
+            </div>
+
+            <div class="table-responsive border rounded">
+              <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th class="text-center">Sel.</th>
+                    <th>ID</th>
+                    <th>Proveedor</th>
+                    <th>Ruta</th>
+                    <th>Etapa</th>
+                    <th class="text-end">Total</th>
+                    <th class="text-end">Asignado</th>
+                    <th class="text-end">Saldo</th>
+                    <th class="text-end">Monto pago</th>
+                  </tr>
+                </thead>
+                <tbody id="payCobrosBody">
+                  <tr>
+                    <td colspan="9" class="text-center py-4 text-muted">Cargando boletas elegibles...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-primary" type="button" id="btnGuardarPagoAgrupado" onclick="guardarPagoAgrupado()">
+              <i class="bi bi-save me-1"></i> Registrar pago
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="modalPagoDetalle" tabindex="-1">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title fw-bold" id="pagoDetalleTitle">Detalle de pago</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" id="pagoDetalleBody">
+            <div class="text-center py-4 text-muted">Cargando detalle...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
@@ -9860,6 +10023,10 @@
       let gestionLoadedOnce = false;
       let gestionLastFetchAt = 0;
       let gestionBlockingLoadActive = false;
+      let pagosRowsCache = [];
+      let pagosEligibleRowsCache = [];
+      let pagosLoadInFlight = false;
+      let pagosEligibleLoadInFlight = false;
       let maestroImportState = { items: [], fileName: '', sheetName: '', totalRows: 0, skippedRows: 0, headerDetected: false };
       let dashboardCharts = {};
       let currentWorkspaceModule = 'panel';
@@ -9908,7 +10075,9 @@
         proveedores: { data: null, at: 0 },
         maestro: { data: null, at: 0 },
         pilotos: { data: null, at: 0 },
-        historial: { data: null, at: 0 }
+        historial: { data: null, at: 0 },
+        pagos: { data: null, at: 0 },
+        pagosElegibles: { data: null, at: 0 }
       };
 
       function buildApiQueryString_(query) {
@@ -9948,6 +10117,10 @@
         markAllNotificationsRead: (args) => ({ method: 'POST', path: '/api/notifications/read-all', body: { actorEmail: args[0] || '' } }),
         getGestionSnapshot: (args) => ({ method: 'GET', path: '/api/gestion/snapshot', query: { actorEmail: args[0] || '' } }),
         getGestionResumen: (args) => ({ method: 'GET', path: '/api/gestion/resumen', query: { actorEmail: args[0] || '' } }),
+        getPayments: (args) => ({ method: 'GET', path: '/api/payments', query: { actorEmail: args[0] || '', q: args[1] || '' } }),
+        getEligiblePaymentCobros: (args) => ({ method: 'GET', path: '/api/payments/eligible-cobros', query: { actorEmail: args[0] || '', q: args[1] || '' } }),
+        getPaymentDetail: (args) => ({ method: 'GET', path: '/api/payments/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
+        createGroupedPayment: (args) => ({ method: 'POST', path: '/api/payments', body: { payment: args[0] || {}, actorEmail: args[1] || '' } }),
         deleteGestionCobros: (args) => ({ method: 'POST', path: '/api/gestion/delete', body: { ids: args[0] || [], authKey: args[1] || '', motivo: args[2] || '', actorEmail: args[3] || '', actorCtx: args[4] || {} } }),
         bulkUpdateResponsable: (args) => ({ method: 'POST', path: '/api/gestion/responsable/bulk', body: { ids: args[0] || [], responsable: args[1] || '', actorEmail: args[2] || '', actorCtx: args[3] || {} } }),
         bulkMarcarObservado: (args) => ({ method: 'POST', path: '/api/gestion/observado/bulk', body: { ids: args[0] || [], motivo: args[1] || '', areaDestino: args[2] || '', actorEmail: args[3] || '', actorCtx: args[4] || {} } }),
@@ -10096,6 +10269,8 @@
       const modalTimelineEl = new bootstrap.Modal(document.getElementById('modalTimeline'), { backdrop: false });
       const modalAprobacionesEl = new bootstrap.Modal(document.getElementById('modalAprobaciones'));
       const modalAnularEl = new bootstrap.Modal(document.getElementById('modalAnularConfirm'));
+      const modalPagoAgrupadoEl = new bootstrap.Modal(document.getElementById('modalPagoAgrupado'));
+      const modalPagoDetalleEl = new bootstrap.Modal(document.getElementById('modalPagoDetalle'));
       let pdfViewerLoadTimer = null;
       let pdfViewerLoadToken = 0;
       const flowToastEl = document.getElementById('flowToast');
@@ -10899,6 +11074,7 @@
         const wHist = document.getElementById('modHistorialWrapper');
         const wRepo = document.getElementById('modReportesWrapper');
         const wGest = document.getElementById('modGestionWrapper');
+        const wPag = document.getElementById('modPagosWrapper');
         const wUsers = document.getElementById('modUsuariosWrapper');
         const wProv = document.getElementById('modProveedoresWrapper');
         const wMaster = document.getElementById('modMaestroWrapper');
@@ -10916,6 +11092,7 @@
         if (wHist) wHist.style.display = 'block';
         if (wRepo) wRepo.style.display = 'block';
         if (wGest) wGest.style.display = 'block';
+        if (wPag) wPag.style.display = 'none';
         if (wUsers) wUsers.style.display = 'none';
         if (wProv) wProv.style.display = 'none';
         if (wMaster) wMaster.style.display = 'none';
@@ -10932,6 +11109,9 @@
           if (wMaster) wMaster.style.display = 'block';
           if (wPil) wPil.style.display = 'block';
         }
+
+        const canManagePagos = ['admin', 'supervisor', 'logistica_inversa', 'transporte', 'creditos_cobros'].includes(rol);
+        if (canManagePagos && wPag) wPag.style.display = 'block';
 
         if (rol === 'admin') {
           if (btnUsers) btnUsers.style.display = 'block';
@@ -10959,7 +11139,7 @@
       }
 
       function setSidebarActive(mod) {
-        const ids = ['sbBtnPanel', 'sbBtnCobro', 'sbBtnHistorial', 'sbBtnReportes', 'sbBtnUsuarios', 'sbBtnProveedores', 'sbBtnMaestro', 'sbBtnPilotos', 'sbBtnConfig', 'sbBtnGestion'];
+        const ids = ['sbBtnPanel', 'sbBtnCobro', 'sbBtnHistorial', 'sbBtnReportes', 'sbBtnUsuarios', 'sbBtnProveedores', 'sbBtnMaestro', 'sbBtnPilotos', 'sbBtnConfig', 'sbBtnGestion', 'sbBtnPagos'];
         ids.forEach(id => {
           const el = document.getElementById(id);
           if (el) el.classList.remove('is-active');
@@ -10974,7 +11154,8 @@
           maestro: 'sbBtnMaestro',
           pilotos: 'sbBtnPilotos',
           config: 'sbBtnConfig',
-          gestion: 'sbBtnGestion'
+          gestion: 'sbBtnGestion',
+          pagos: 'sbBtnPagos'
         };
         const active = document.getElementById(map[mod] || '');
         if (active) active.classList.add('is-active');
@@ -11093,6 +11274,9 @@
           case 'gestion':
             cargarGestion(false, true);
             break;
+          case 'pagos':
+            cargarPagos(true);
+            break;
         }
       }
 
@@ -11102,7 +11286,7 @@
 
       function showModule(mod) {
         currentWorkspaceModule = mod;
-        ['cobroContainer', 'historialContainer', 'reportesContainer', 'usuariosContainer', 'proveedoresContainer', 'maestroContainer', 'pilotosContainer', 'configContainer', 'gestionContainer'].forEach(id => {
+        ['cobroContainer', 'historialContainer', 'reportesContainer', 'usuariosContainer', 'proveedoresContainer', 'maestroContainer', 'pilotosContainer', 'configContainer', 'gestionContainer', 'pagosContainer'].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.style.display = 'none';
         });
@@ -11130,7 +11314,8 @@
           proveedores: 'Gestión Proveedores',
           pilotos: 'Gestión Pilotos',
           config: 'Config Reglas',
-          gestion: 'Gestión'
+          gestion: 'Gestión',
+          pagos: 'Gestión de pagos'
         };
         titulos.maestro = 'Gestión Maestro';
         document.getElementById('navTitle').innerText = titulos[mod] || 'App';
@@ -11193,6 +11378,7 @@
       function abrirMaestro() { showModule('maestro'); cargarMaestro(); }
       function abrirPilotos() { showModule('pilotos'); cargarPilotos(); }
       function abrirConfigReglas() { showModule('config'); cargarConfigReglas(); }
+      function abrirPagos() { showModule('pagos'); cargarPagos(); }
 
       // ✅ NUEVO
       function abrirGestion() {
@@ -11214,6 +11400,397 @@
             scheduleGestionRefresh(0);
           }
         });
+      }
+
+      function getPagosSearchQuery_() {
+        const input = document.getElementById('pTexto');
+        return normalizeSearchTextUi_(input ? input.value : '');
+      }
+
+      function filterPagosRows_(rows) {
+        const list = Array.isArray(rows) ? rows : [];
+        const query = getPagosSearchQuery_();
+        if (!query) return list;
+        return list.filter(row => normalizeSearchTextUi_([
+          row.id,
+          row.operationNumber,
+          row.paymentDate,
+          row.status,
+          row.notes,
+          row.countryCode,
+          row.countryName,
+          Array.isArray(row.providerNames) ? row.providerNames.join(' ') : '',
+          Array.isArray(row.cobroIds) ? row.cobroIds.join(' ') : ''
+        ].join(' ')).includes(query));
+      }
+
+      function renderPagos(rows) {
+        const tb = document.getElementById('pagosBody');
+        if (!tb) return;
+        const list = filterPagosRows_(rows);
+        if (!list.length) {
+          const query = getPagosSearchQuery_();
+          renderTableState_(tb, 8, query ? 'No se encontraron pagos con esa búsqueda.' : 'Sin pagos registrados todavía.', 'muted');
+          return;
+        }
+        tb.innerHTML = list.map(row => {
+          const providers = Array.isArray(row.providerNames) ? row.providerNames.filter(Boolean) : [];
+          const providersLabel = providers.length
+            ? `${escapeHtmlUi(providers.slice(0, 2).join(', '))}${providers.length > 2 ? `<div class="small text-muted">+${providers.length - 2} más</div>` : ''}`
+            : '<span class="text-muted">-</span>';
+          return `
+            <tr>
+              <td class="fw-semibold">${escapeHtmlUi(row.id || '-')}</td>
+              <td>${escapeHtmlUi(row.operationNumber || '-')}</td>
+              <td>${escapeHtmlUi(row.paymentDate || '-')}</td>
+              <td class="text-end text-money">${fmtMoney(row.totalAmount || 0)}</td>
+              <td class="text-center"><span class="badge bg-light text-dark border">${fmtNum(row.cobroCount || 0)}</span></td>
+              <td>${providersLabel}</td>
+              <td><span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">${escapeHtmlUi(row.status || 'Registrado')}</span></td>
+              <td class="text-center">
+                <button class="btn btn-sm btn-outline-primary" type="button" onclick="verDetallePago('${escapeHtmlUi(row.id || '')}')">
+                  <i class="bi bi-eye me-1"></i> Ver
+                </button>
+              </td>
+            </tr>`;
+        }).join('');
+      }
+
+      function cargarPagos(force) {
+        const tb = document.getElementById('pagosBody');
+        if (!tb || pagosLoadInFlight) return;
+        const hasCached = hasUiCacheData_('pagos');
+        if (hasCached) {
+          pagosRowsCache = Array.isArray(getUiCacheData_('pagos')) ? getUiCacheData_('pagos') : [];
+          renderPagos(pagosRowsCache);
+        } else {
+          renderTableState_(tb, 8, 'Cargando pagos...', 'loading');
+        }
+        if (hasCached && !force && isUiCacheFresh_('pagos')) return;
+
+        pagosLoadInFlight = true;
+        rpc.withSuccessHandler(resp => {
+          pagosLoadInFlight = false;
+          const rows = Array.isArray(resp?.rows) ? resp.rows : [];
+          pagosRowsCache = rows;
+          setUiCacheData_('pagos', rows);
+          renderPagos(rows);
+        }).withFailureHandler(err => {
+          pagosLoadInFlight = false;
+          console.error('Error cargando pagos:', err);
+          if (hasCached) return;
+          renderTableState_(tb, 8, getRunErrorMsg(err, 'No se pudo cargar la lista de pagos.'), 'error');
+        }).getPayments(usuarioSesion?.email || '', '');
+      }
+
+      function resetPagoAgrupadoForm_() {
+        const formIds = ['payOperationNumber', 'payDate', 'payTotalAmount', 'payNotes', 'payCobroSearch'];
+        formIds.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.value = '';
+        });
+        const fileInput = document.getElementById('payConstanciaFile');
+        if (fileInput) fileInput.value = '';
+        pagosEligibleRowsCache = [];
+        clearUiCache_('pagosElegibles');
+        const body = document.getElementById('payCobrosBody');
+        if (body) {
+          renderTableState_(body, 9, 'Cargando boletas elegibles...', 'loading');
+        }
+        updatePagoAgrupadoSummary_();
+      }
+
+      function abrirNuevoPagoAgrupado() {
+        resetPagoAgrupadoForm_();
+        const dateInput = document.getElementById('payDate');
+        if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
+        modalPagoAgrupadoEl.show();
+        cargarCobrosElegiblesPago(true);
+      }
+
+      function getCobrosElegiblesPagoSearch_() {
+        const input = document.getElementById('payCobroSearch');
+        return normalizeSearchTextUi_(input ? input.value : '');
+      }
+
+      function filterCobrosElegiblesPagoRows_(rows) {
+        const list = Array.isArray(rows) ? rows : [];
+        const query = getCobrosElegiblesPagoSearch_();
+        if (!query) return list;
+        return list.filter(row => normalizeSearchTextUi_([
+          row.id,
+          row.proveedor,
+          row.proveedorCodigo,
+          row.ruta,
+          row.unidad,
+          row.estado,
+          row.etapa,
+          row.countryCode,
+          row.countryName
+        ].join(' ')).includes(query));
+      }
+
+      function updatePagoAgrupadoSummary_() {
+        const selected = (pagosEligibleRowsCache || []).filter(row => row && row._selected);
+        const totalAssigned = selected.reduce((sum, row) => sum + Number(row._paymentAmount || 0), 0);
+        const summary = document.getElementById('paySelectedSummary');
+        const amount = document.getElementById('payAmountSummary');
+        if (summary) summary.textContent = `${fmtNum(selected.length)} boletas seleccionadas`;
+        if (amount) amount.textContent = `Asignado: ${fmtMoney(totalAssigned)}`;
+      }
+
+      function renderCobrosElegiblesPago(rows) {
+        const tb = document.getElementById('payCobrosBody');
+        if (!tb) return;
+        const list = filterCobrosElegiblesPagoRows_(rows);
+        if (!list.length) {
+          const query = getCobrosElegiblesPagoSearch_();
+          renderTableState_(tb, 9, query ? 'No se encontraron boletas para esa búsqueda.' : 'No hay boletas elegibles para pago agrupado.', 'muted');
+          updatePagoAgrupadoSummary_();
+          return;
+        }
+        tb.innerHTML = list.map((row) => {
+          const actualIndex = pagosEligibleRowsCache.indexOf(row);
+          return `
+            <tr>
+              <td class="text-center">
+                <input class="form-check-input" type="checkbox" ${row._selected ? 'checked' : ''} onchange="togglePagoCobroSelection_(${actualIndex}, this.checked)">
+              </td>
+              <td class="fw-semibold">${escapeHtmlUi(row.id || '-')}</td>
+              <td>
+                <div>${escapeHtmlUi(row.proveedor || '-')}</div>
+                <div class="small text-muted">${escapeHtmlUi(row.proveedorCodigo || '-')}</div>
+              </td>
+              <td>
+                <div>${escapeHtmlUi(row.ruta || '-')}</div>
+                <div class="small text-muted">${escapeHtmlUi(row.unidad || '-')}</div>
+              </td>
+              <td>${escapeHtmlUi(row.etapa || '-')}</td>
+              <td class="text-end text-money">${fmtMoney(row.totalCobro || 0)}</td>
+              <td class="text-end text-money">${fmtMoney(row.allocatedAmount || 0)}</td>
+              <td class="text-end text-money">${fmtMoney(row.saldoPendiente || 0)}</td>
+              <td class="text-end" style="min-width: 140px;">
+                <input type="number" class="form-control form-control-sm text-end" min="0.01" step="0.01"
+                  value="${Number(row._paymentAmount || 0) > 0 ? Number(row._paymentAmount || 0).toFixed(2) : ''}"
+                  ${row._selected ? '' : 'disabled'}
+                  onchange="updatePagoCobroAmount_(${actualIndex}, this.value)"
+                  oninput="updatePagoCobroAmount_(${actualIndex}, this.value)">
+              </td>
+            </tr>`;
+        }).join('');
+        updatePagoAgrupadoSummary_();
+      }
+
+      function cargarCobrosElegiblesPago(force) {
+        const tb = document.getElementById('payCobrosBody');
+        if (!tb || pagosEligibleLoadInFlight) return;
+        const cached = getUiCacheData_('pagosElegibles');
+        const hasCached = hasUiCacheData_('pagosElegibles');
+        if (hasCached) {
+          pagosEligibleRowsCache = (Array.isArray(cached) ? cached : []).map(row => Object.assign({}, row));
+          renderCobrosElegiblesPago(pagosEligibleRowsCache);
+        } else {
+          renderTableState_(tb, 9, 'Cargando boletas elegibles...', 'loading');
+        }
+        if (hasCached && !force && isUiCacheFresh_('pagosElegibles')) return;
+
+        pagosEligibleLoadInFlight = true;
+        rpc.withSuccessHandler(resp => {
+          pagosEligibleLoadInFlight = false;
+          const rows = (Array.isArray(resp?.rows) ? resp.rows : []).map(row => Object.assign({}, row, {
+            _selected: false,
+            _paymentAmount: Number(row.saldoPendiente || 0) > 0 ? Number(row.saldoPendiente || 0) : 0
+          }));
+          pagosEligibleRowsCache = rows;
+          setUiCacheData_('pagosElegibles', rows.map(row => Object.assign({}, row)));
+          renderCobrosElegiblesPago(rows);
+        }).withFailureHandler(err => {
+          pagosEligibleLoadInFlight = false;
+          console.error('Error cargando boletas elegibles:', err);
+          if (hasCached) return;
+          renderTableState_(tb, 9, getRunErrorMsg(err, 'No se pudieron cargar las boletas elegibles.'), 'error');
+        }).getEligiblePaymentCobros(usuarioSesion?.email || '', '');
+      }
+
+      function filtrarCobrosElegiblesPago() {
+        renderCobrosElegiblesPago(pagosEligibleRowsCache);
+      }
+
+      function togglePagoCobroSelection_(index, checked) {
+        const row = pagosEligibleRowsCache[index];
+        if (!row) return;
+        row._selected = !!checked;
+        if (row._selected && !(Number(row._paymentAmount || 0) > 0)) {
+          row._paymentAmount = Number(row.saldoPendiente || 0) > 0 ? Number(row.saldoPendiente || 0) : 0;
+        }
+        renderCobrosElegiblesPago(pagosEligibleRowsCache);
+      }
+
+      function updatePagoCobroAmount_(index, value) {
+        const row = pagosEligibleRowsCache[index];
+        if (!row) return;
+        const parsed = parseLooseNumberUi_(value);
+        row._paymentAmount = parsed > 0 ? parsed : 0;
+        updatePagoAgrupadoSummary_();
+      }
+
+      function readFileAsDataUrlUi_(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ''));
+          reader.onerror = () => reject(new Error('No se pudo leer el archivo seleccionado.'));
+          reader.readAsDataURL(file);
+        });
+      }
+
+      async function guardarPagoAgrupado() {
+        const operationNumber = String(document.getElementById('payOperationNumber')?.value || '').trim();
+        const paymentDate = String(document.getElementById('payDate')?.value || '').trim();
+        const totalAmount = parseLooseNumberUi_(document.getElementById('payTotalAmount')?.value || '');
+        const notes = String(document.getElementById('payNotes')?.value || '').trim();
+        const fileInput = document.getElementById('payConstanciaFile');
+        const file = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+        const selectedItems = (pagosEligibleRowsCache || [])
+          .filter(row => row && row._selected)
+          .map(row => ({
+            cobroId: String(row.id || '').trim(),
+            amount: parseLooseNumberUi_(row._paymentAmount)
+          }));
+        const invalidItem = selectedItems.find(item => !(item.amount > 0));
+        const sumAssigned = selectedItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+        if (!operationNumber) return Swal.fire('Error', 'Debe ingresar el número de operación.', 'error');
+        if (!paymentDate) return Swal.fire('Error', 'Debe ingresar la fecha de pago.', 'error');
+        if (!(totalAmount > 0)) return Swal.fire('Error', 'Debe ingresar un monto total válido.', 'error');
+        if (!selectedItems.length) return Swal.fire('Error', 'Seleccione al menos una boleta.', 'error');
+        if (invalidItem) return Swal.fire('Error', 'Cada boleta seleccionada debe tener un monto mayor a 0.', 'error');
+        if (Math.abs(sumAssigned - totalAmount) > 0.009) {
+          return Swal.fire('Error', 'La suma asignada a las boletas debe coincidir con el monto total del pago.', 'error');
+        }
+        if (!file) return Swal.fire('Error', 'Adjunte la constancia de pago en PDF.', 'error');
+        if (String(file.type || '').toLowerCase() !== 'application/pdf' && !String(file.name || '').toLowerCase().endsWith('.pdf')) {
+          return Swal.fire('Error', 'La constancia debe estar en formato PDF.', 'error');
+        }
+        if (Number(file.size || 0) > 10 * 1024 * 1024) {
+          return Swal.fire('Error', 'La constancia supera 10 MB.', 'error');
+        }
+
+        try {
+          mostrarLoading(true);
+          const dataUrl = await readFileAsDataUrlUi_(file);
+          rpc.withSuccessHandler(resp => {
+            mostrarLoading(false);
+            if (!resp || !resp.success) {
+              Swal.fire('Error', resp?.message || 'No se pudo registrar el pago agrupado.', 'error');
+              return;
+            }
+            modalPagoAgrupadoEl.hide();
+            clearUiCache_('pagos');
+            clearUiCache_('pagosElegibles');
+            clearUiCache_('gestion');
+            cargarPagos(true);
+            if (currentWorkspaceModule === 'gestion') cargarGestion(false, true);
+            Swal.fire('Guardado', `Pago ${resp.paymentId || ''} registrado y asociado a ${fmtNum(resp.cobroCount || 0)} boletas.`, 'success');
+          }).withFailureHandler(err => {
+            mostrarLoading(false);
+            Swal.fire('Error', getRunErrorMsg(err, 'No se pudo registrar el pago agrupado.'), 'error');
+          }).createGroupedPayment({
+            operationNumber,
+            paymentDate,
+            totalAmount,
+            notes,
+            items: selectedItems,
+            fileName: String(file.name || 'constancia_pago.pdf'),
+            mimeType: 'application/pdf',
+            dataUrl
+          }, usuarioSesion?.email || '');
+        } catch (err) {
+          mostrarLoading(false);
+          Swal.fire('Error', getRunErrorMsg(err, 'No se pudo leer la constancia de pago.'), 'error');
+        }
+      }
+
+      function verDetallePago(paymentId) {
+        const id = String(paymentId || '').trim();
+        if (!id) {
+          Swal.fire('Error', 'No se pudo identificar el pago.', 'error');
+          return;
+        }
+        const body = document.getElementById('pagoDetalleBody');
+        const title = document.getElementById('pagoDetalleTitle');
+        if (title) title.textContent = `Detalle de pago ${id}`;
+        if (body) body.innerHTML = '<div class="text-center py-4 text-muted">Cargando detalle...</div>';
+        modalPagoDetalleEl.show();
+        rpc.withSuccessHandler(resp => {
+          const payment = resp?.payment || {};
+          const cobros = Array.isArray(resp?.cobros) ? resp.cobros : [];
+          const countryLabel = payment.countryCode ? getCountryDisplayLabelUi_(payment.countryCode) : (payment.countryName || '-');
+          body.innerHTML = `
+            <div class="row g-3 mb-3">
+              <div class="col-md-4"><div class="small text-muted">Número de operación</div><div class="fw-semibold">${escapeHtmlUi(payment.operationNumber || '-')}</div></div>
+              <div class="col-md-3"><div class="small text-muted">Fecha pago</div><div class="fw-semibold">${escapeHtmlUi(payment.paymentDate || '-')}</div></div>
+              <div class="col-md-3"><div class="small text-muted">Monto total</div><div class="fw-semibold">${fmtMoney(payment.totalAmount || 0)}</div></div>
+              <div class="col-md-2"><div class="small text-muted">Estado</div><div class="fw-semibold">${escapeHtmlUi(payment.status || '-')}</div></div>
+              <div class="col-md-6"><div class="small text-muted">País</div><div class="fw-semibold">${escapeHtmlUi(countryLabel || '-')}</div></div>
+              <div class="col-md-6"><div class="small text-muted">Registrado por</div><div class="fw-semibold">${escapeHtmlUi(payment.createdBy || '-')}</div></div>
+              <div class="col-12"><div class="small text-muted">Notas</div><div class="fw-semibold">${escapeHtmlUi(payment.notes || '-')}</div></div>
+              <div class="col-12">
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="openPdfInApp('${escapeHtmlUi(payment.constanciaPagoUrl || '')}','Constancia ${escapeHtmlUi(payment.operationNumber || payment.id || 'pago')}')">
+                  <i class="bi bi-file-earmark-pdf me-1"></i> Ver constancia
+                </button>
+              </div>
+            </div>
+            <div class="table-responsive border rounded">
+              <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>ID boleta</th>
+                    <th>Proveedor</th>
+                    <th>Ruta</th>
+                    <th>Etapa</th>
+                    <th class="text-end">Total boleta</th>
+                    <th class="text-end">Monto aplicado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${cobros.length ? cobros.map(row => `
+                    <tr>
+                      <td class="fw-semibold">${escapeHtmlUi(row.cobroId || '-')}</td>
+                      <td>
+                        <div>${escapeHtmlUi(row.proveedor || '-')}</div>
+                        <div class="small text-muted">${escapeHtmlUi(row.proveedorCodigo || '-')}</div>
+                      </td>
+                      <td>
+                        <div>${escapeHtmlUi(row.ruta || '-')}</div>
+                        <div class="small text-muted">${escapeHtmlUi(row.unidad || '-')}</div>
+                      </td>
+                      <td>${escapeHtmlUi(row.etapa || '-')}</td>
+                      <td class="text-end text-money">${fmtMoney(row.totalCobro || 0)}</td>
+                      <td class="text-end text-money">${fmtMoney(row.allocatedAmount || 0)}</td>
+                    </tr>`).join('') : '<tr><td colspan="6" class="text-center text-muted py-3">Sin boletas asociadas.</td></tr>'}
+                </tbody>
+              </table>
+            </div>`;
+        }).withFailureHandler(err => {
+          body.innerHTML = `<div class="text-center text-danger py-4">${escapeHtmlUi(getRunErrorMsg(err, 'No se pudo cargar el detalle del pago.'))}</div>`;
+        }).getPaymentDetail(id, usuarioSesion?.email || '');
+      }
+
+      const pTextoEl = document.getElementById('pTexto');
+      if (pTextoEl) {
+        pTextoEl.addEventListener('input', () => {
+          if (hasUiCacheData_('pagos')) renderPagos(getUiCacheData_('pagos'));
+        });
+        pTextoEl.addEventListener('keydown', e => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          cargarPagos(true);
+        });
+      }
+
+      const payCobroSearchEl = document.getElementById('payCobroSearch');
+      if (payCobroSearchEl) {
+        payCobroSearchEl.addEventListener('input', () => filtrarCobrosElegiblesPago());
       }
 
       const gTextoEl = document.getElementById('gTexto');
@@ -11916,6 +12493,10 @@
         gestionLoadedOnce = false;
         gestionLastFetchAt = 0;
         gestionBlockingLoadActive = false;
+        pagosRowsCache = [];
+        pagosEligibleRowsCache = [];
+        pagosLoadInFlight = false;
+        pagosEligibleLoadInFlight = false;
         cfgRulesLastFetchAt = 0;
         cfgRulesLoadSeq = 0;
         cfgRulesLoadingActive = false;
@@ -11942,7 +12523,7 @@
         if (login) login.style.display = 'flex';
         document.body.classList.remove('workspace-sidebar-collapsed');
 
-        ['panelContainer', 'cobroContainer', 'historialContainer', 'reportesContainer', 'usuariosContainer', 'proveedoresContainer', 'maestroContainer', 'pilotosContainer', 'configContainer', 'gestionContainer']
+        ['panelContainer', 'cobroContainer', 'historialContainer', 'reportesContainer', 'usuariosContainer', 'proveedoresContainer', 'maestroContainer', 'pilotosContainer', 'configContainer', 'gestionContainer', 'pagosContainer']
           .forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
