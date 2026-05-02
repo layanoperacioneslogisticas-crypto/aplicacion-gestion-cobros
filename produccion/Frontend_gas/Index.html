@@ -4322,6 +4322,10 @@
       margin-bottom: 12px;
     }
 
+    .flow-payment-grid.is-single {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
     .flow-payment-field-card {
       border: 1px solid #e5edf7;
       border-radius: 14px;
@@ -9796,7 +9800,7 @@
                         </div>
 
                         <div class="row g-3" id="flowStageFields">
-                          <div class="col-md-6" data-stage-only="3">
+                          <div class="col-md-6" data-stage-only="3" id="flowInventarioStatusWrap">
                             <label class="form-label small fw-bold">InventarioStatus <span
                                 class="flow-required-badge">requerido</span></label>
                             <select id="gf_inventarioStatus" class="form-select form-select-sm">
@@ -9806,12 +9810,14 @@
                               <option value="No hay">No hay</option>
                             </select>
                           </div>
-                          <div class="col-md-6" data-stage-only="3">
+                          <div id="flowInventarioStatusPlaceholder" class="d-none"></div>
+                          <div class="col-md-6" data-stage-only="3" id="flowInventarioCommentWrap">
                             <label class="form-label small fw-bold">ComentarioInventario <span
                                 class="flow-required-badge">requerido</span></label>
                             <input id="gf_comentarioInventario" class="form-control form-control-sm"
                               placeholder="Detalle del inventario...">
                           </div>
+                          <div id="flowInventarioCommentPlaceholder" class="d-none"></div>
                           <div class="col-md-6" data-stage-only="2">
                             <label class="form-label small fw-bold">Límite firma
                               boleta</label>
@@ -9860,43 +9866,42 @@
                       <div class="card-body">
                         <div class="flow-payment-hero">
                           <div class="flow-payment-lane flow-payment-lane-primary">
-                            <div class="flow-payment-title"><i class="bi bi-cash-coin"></i>Registro de pago</div>
-                            <div class="flow-payment-subtitle">
-                              Si este pago corresponde solo a esta boleta, regístralo aquí con número de operación, monto y constancia PDF.
+                            <div class="flow-payment-title"><i class="bi bi-cash-coin" id="flowPrimaryFocusIcon"></i><span id="flowPrimaryFocusTitle">Acción principal</span></div>
+                            <div class="flow-payment-subtitle" id="flowPrimaryFocusSubtitle">
+                              Completa aquí la acción principal de la etapa actual.
                             </div>
-                            <div class="flow-payment-grid">
+                            <div class="flow-payment-grid" id="flowPrimaryFocusFields">
                               <div class="flow-payment-field-card" id="flowPaymentFieldHost"></div>
                               <div class="flow-payment-field-card" id="flowPaymentAmountHost"></div>
                             </div>
-                            <div class="flow-payment-section-muted">Constancia principal</div>
-                            <div id="flowPaymentPdfHost"></div>
+                            <div id="flowPrimaryFocusPdfSection">
+                              <div class="flow-payment-section-muted" id="flowPrimaryFocusPdfLabel">Documento principal</div>
+                              <div id="flowPaymentPdfHost"></div>
+                            </div>
                           </div>
                           <div class="flow-payment-lane flow-payment-lane-grouped">
-                            <div class="flow-payment-guide">
-                              Si una sola constancia cubre varias boletas, evita registrar el pago individual y usa el módulo de pagos agrupados.
+                            <div class="flow-payment-guide" id="flowPrimaryFocusGuide">
+                              Sigue la acción principal de esta etapa para mantener el flujo limpio y rápido.
                             </div>
-                            <div class="flow-payment-choice">
-                              <div class="flow-payment-choice-title"><i class="bi bi-journal-check"></i>Registrar pago individual</div>
-                              <div class="flow-payment-choice-text">
-                                Completa aquí el número de operación, monto y PDF para cerrar esta boleta sin salir del flujo.
+                            <div class="flow-payment-choice" id="flowPrimaryChoiceCard">
+                              <div class="flow-payment-choice-title"><i class="bi bi-journal-check" id="flowPrimaryChoiceIcon"></i><span id="flowPrimaryChoiceTitle">Acción principal</span></div>
+                              <div class="flow-payment-choice-text" id="flowPrimaryChoiceText">
+                                Usa este acceso para ejecutar la acción principal de la etapa.
                               </div>
                               <div class="flow-payment-choice-actions">
-                                <button type="button" class="btn btn-primary btn-sm" onclick="guardarFlowData()">
-                                  <i class="bi bi-check2-circle me-1"></i> Guardar pago individual
+                                <button type="button" class="btn btn-primary btn-sm" id="flowPrimaryChoiceBtn">
+                                  <i class="bi bi-check2-circle me-1"></i> Continuar
                                 </button>
                               </div>
                             </div>
-                            <div class="flow-payment-choice">
-                              <div class="flow-payment-choice-title"><i class="bi bi-diagram-3"></i>O asociar a pago agrupado</div>
-                              <div class="flow-payment-choice-text">
-                                Usa Gestión de pagos cuando una misma constancia o número de operación aplique a varias boletas.
+                            <div class="flow-payment-choice" id="flowSecondaryChoiceCard">
+                              <div class="flow-payment-choice-title"><i class="bi bi-diagram-3" id="flowSecondaryChoiceIcon"></i><span id="flowSecondaryChoiceTitle">Acción complementaria</span></div>
+                              <div class="flow-payment-choice-text" id="flowSecondaryChoiceText">
+                                Aquí verás el camino alterno o complementario según la etapa actual.
                               </div>
                               <div class="flow-payment-choice-actions">
-                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="abrirPagosDesdeFlow()">
-                                  <i class="bi bi-wallet2 me-1"></i> Abrir Gestión de pagos
-                                </button>
-                                <button type="button" class="btn btn-primary btn-sm" onclick="crearPagoAgrupadoDesdeFlow()">
-                                  <i class="bi bi-plus-circle me-1"></i> Crear pago agrupado
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="flowSecondaryChoiceBtn">
+                                  <i class="bi bi-arrow-right-circle me-1"></i> Abrir
                                 </button>
                               </div>
                             </div>
@@ -9917,7 +9922,7 @@
                       </div>
                       <div class="card-body">
                         <div class="flow-pdf-grid">
-                          <div class="pdf-card" data-stages="2">
+                          <div class="pdf-card" data-stages="2" id="flowBoletaCard">
                             <div class="pdf-card-head">
                               <div class="pdf-card-icon"><i class="bi bi-file-earmark-text"></i></div>
                               <button id="btnVerBoleta" class="btn btn-outline-secondary btn-sm pdf-card-view"
@@ -9937,8 +9942,9 @@
                                 onclick="subirPdfFlujo('FirmaBoletaUrl','gf_boletaFile','gf_firmaBoletaUrl','gf_lblBoleta','btnVerBoleta', this)">Subir</button>
                             </div>
                           </div>
+                          <div id="flowBoletaCardPlaceholder" class="d-none"></div>
 
-                          <div class="pdf-card" data-stages="6">
+                          <div class="pdf-card" data-stages="6" id="flowFacturaCard">
                             <div class="pdf-card-head">
                               <div class="pdf-card-icon"><i class="bi bi-folder2-open"></i></div>
                               <button id="btnVerFactura" class="btn btn-outline-secondary btn-sm pdf-card-view"
@@ -9958,8 +9964,9 @@
                                 onclick="subirPdfFlujo('FacturaUrl','gf_facturaFile','gf_facturaUrl','gf_lblFactura','btnVerFactura', this)">Subir</button>
                             </div>
                           </div>
+                          <div id="flowFacturaCardPlaceholder" class="d-none"></div>
 
-                          <div class="pdf-card" data-stages="7">
+                          <div class="pdf-card" data-stages="7" id="flowFirmaFacturaCard">
                             <div class="pdf-card-head">
                               <div class="pdf-card-icon"><i class="bi bi-folder2-open"></i></div>
                               <button id="btnVerFirmaFactura" class="btn btn-outline-secondary btn-sm pdf-card-view"
@@ -9979,6 +9986,7 @@
                                 onclick="subirPdfFlujo('FirmaFacturaUrl','gf_firmaFacturaFile','gf_firmaFacturaUrl','gf_lblFirmaFactura','btnVerFirmaFactura', this)">Subir</button>
                             </div>
                           </div>
+                          <div id="flowFirmaFacturaCardPlaceholder" class="d-none"></div>
 
                           <div class="pdf-card" data-stages="9" id="flowConstanciaCard">
                             <div class="pdf-card-head">
@@ -10045,26 +10053,30 @@
                       <div id="futureFields" class="collapse show">
                         <div class="card-body">
                           <div class="row g-3">
-                            <div class="col-md-4">
+                            <div class="col-md-4" id="flowOvFieldWrap">
                               <label class="form-label small fw-bold">OV_Numero</label>
                               <input id="gf_ovNumero" class="form-control form-control-sm" data-min-stage="4"
                                 placeholder="N° OV">
                             </div>
-                            <div class="col-md-4">
+                            <div id="flowOvFieldPlaceholder" class="d-none"></div>
+                            <div class="col-md-4" id="flowRutaFieldWrap">
                               <label class="form-label small fw-bold">RutaId</label>
                               <input id="gf_rutaId" class="form-control form-control-sm" data-min-stage="5"
                                 placeholder="ID de ruta">
                             </div>
-                            <div class="col-md-4">
+                            <div id="flowRutaFieldPlaceholder" class="d-none"></div>
+                            <div class="col-md-4" id="flowFacturaNumeroWrap">
                               <label class="form-label small fw-bold">FacturaNumero</label>
                               <input id="gf_facturaNumero" class="form-control form-control-sm" data-min-stage="6"
                                 placeholder="Ej: F001-12345">
                             </div>
-                            <div class="col-md-4">
+                            <div id="flowFacturaNumeroPlaceholder" class="d-none"></div>
+                            <div class="col-md-4" id="flowLiquidacionWrap">
                               <label class="form-label small fw-bold">Referencia de liquidación</label>
                               <input id="gf_liquidacionRef" class="form-control form-control-sm" data-min-stage="8"
                                 placeholder="Referencia de liquidación">
                             </div>
+                            <div id="flowLiquidacionPlaceholder" class="d-none"></div>
                             <div class="col-md-4" id="flowDebitoFieldWrap">
                               <label class="form-label small fw-bold">Número de operación</label>
                               <input id="gf_debitoRef" class="form-control form-control-sm" data-min-stage="9"
@@ -10077,11 +10089,12 @@
                                 placeholder="Ej: 1500.00">
                             </div>
                             <div id="flowMontoFieldPlaceholder" class="d-none"></div>
-                            <div class="col-md-4">
+                            <div class="col-md-4" id="flowAplicacionPagoWrap">
                               <label class="form-label small fw-bold">Aplicación de pago</label>
                               <input id="gf_facturasDebitar" class="form-control form-control-sm" data-min-stage="10"
                                 placeholder="Detalle o referencia de aplicación">
                             </div>
+                            <div id="flowAplicacionPagoPlaceholder" class="d-none"></div>
                           </div>
                         </div>
                       </div>
@@ -11347,38 +11360,416 @@
         placeholder.parentElement.insertBefore(el, placeholder);
       }
 
+      function toggleFlowHostVisibility_(id, show) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.toggle('d-none', !show);
+      }
+
+      function setFlowFocusChoiceButton_(btnId, cfg) {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        const variant = cfg?.variant || 'primary';
+        btn.className = `btn btn-${variant} btn-sm`;
+        btn.innerHTML = `<i class="${cfg?.icon || 'bi bi-arrow-right-circle'} me-1"></i> ${cfg?.label || 'Continuar'}`;
+        btn.disabled = !!cfg?.disabled;
+        btn.onclick = typeof cfg?.onClick === 'function' ? cfg.onClick : null;
+      }
+
+      function setFlowChoiceCard_(prefix, cfg) {
+        const card = document.getElementById(`flow${prefix}ChoiceCard`);
+        const icon = document.getElementById(`flow${prefix}ChoiceIcon`);
+        const title = document.getElementById(`flow${prefix}ChoiceTitle`);
+        const text = document.getElementById(`flow${prefix}ChoiceText`);
+        const btn = document.getElementById(`flow${prefix}ChoiceBtn`);
+        const show = !!cfg;
+        if (card) card.classList.toggle('d-none', !show);
+        if (!show) return;
+        if (icon) icon.className = cfg.cardIcon || cfg.icon || 'bi bi-journal-check';
+        if (title) title.textContent = cfg.title || 'Acción principal';
+        if (text) text.textContent = cfg.text || '';
+        if (btn) setFlowFocusChoiceButton_(btn.id, cfg);
+      }
+
+      function focusFlowElement_(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { }
+        try { el.focus(); } catch (e) { }
+      }
+
+      function clickFlowElement_(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        try { el.click(); } catch (e) { }
+      }
+
+      function openFlowTimelineInline_() {
+        clickFlowElement_('btnFlowTimelineInline');
+      }
+
+      function getFlowPrimaryFocusConfig_(idx) {
+        const stageMap = {
+          1: {
+            icon: 'bi bi-play-circle-fill',
+            title: 'Inicia el flujo operativo',
+            subtitle: 'Activa la trazabilidad del cobro y deja el caso listo para recibir la boleta firmada.',
+            pdfLabel: '',
+            guide: 'Aquí solo necesitas arrancar el flujo. Lo demás aparecerá conforme el caso avance.',
+            fields: [],
+            pdfs: [],
+            primary: {
+              title: 'Iniciar flujo',
+              text: 'Usa esta acción para mover el caso a firma de boleta y comenzar el seguimiento.',
+              label: 'Iniciar flujo',
+              icon: 'bi bi-play-circle',
+              cardIcon: 'bi bi-play-circle',
+              onClick: () => clickFlowElement_('btnIniciarFlujoFlow')
+            },
+            secondary: {
+              title: 'Ver timeline',
+              text: 'Revisa la trazabilidad del caso antes de arrancar si necesitas contexto adicional.',
+              label: 'Ver timeline',
+              icon: 'bi bi-clock-history',
+              cardIcon: 'bi bi-clock-history',
+              variant: 'outline-primary',
+              onClick: () => openFlowTimelineInline_()
+            }
+          },
+          2: {
+            icon: 'bi bi-file-earmark-arrow-up-fill',
+            title: 'Carga la boleta firmada',
+            subtitle: 'Este paso prioriza la evidencia principal para que el flujo pueda avanzar sin bloqueos.',
+            pdfLabel: 'Documento requerido',
+            guide: 'La boleta firmada es el elemento clave en esta etapa. Sube el PDF antes de seguir con otras gestiones.',
+            fields: [],
+            pdfs: [['flowBoletaCard', 'flowBoletaCardPlaceholder']],
+            primary: {
+              title: 'Subir boleta firmada',
+              text: 'Selecciona y carga el PDF firmado para completar la etapa.',
+              label: 'Elegir PDF',
+              icon: 'bi bi-upload',
+              cardIcon: 'bi bi-file-earmark-arrow-up',
+              onClick: () => clickFlowElement_('btnPickBoleta')
+            },
+            secondary: {
+              title: 'Ver timeline',
+              text: 'Abre la trazabilidad del caso si necesitas validar el contexto antes de cargar el archivo.',
+              label: 'Ver timeline',
+              icon: 'bi bi-clock-history',
+              cardIcon: 'bi bi-clock-history',
+              variant: 'outline-primary',
+              onClick: () => openFlowTimelineInline_()
+            }
+          },
+          3: {
+            icon: 'bi bi-clipboard2-check-fill',
+            title: 'Valida el resultado del inventario',
+            subtitle: 'Registra el estado del inventario y el comentario operativo antes de continuar.',
+            pdfLabel: '',
+            guide: 'Esta etapa se resuelve completando el estado y la observación de inventario; evita dejarla parcial.',
+            fields: [
+              ['flowInventarioStatusWrap', 'flowInventarioStatusPlaceholder'],
+              ['flowInventarioCommentWrap', 'flowInventarioCommentPlaceholder']
+            ],
+            pdfs: [],
+            primary: {
+              title: 'Registrar inventario',
+              text: 'Completa ambos campos para dejar el resultado del inventario listo para guardar.',
+              label: 'Completar inventario',
+              icon: 'bi bi-pencil-square',
+              cardIcon: 'bi bi-clipboard2-check',
+              onClick: () => focusFlowElement_('gf_inventarioStatus')
+            },
+            secondary: {
+              title: 'Ver timeline',
+              text: 'Revisa la secuencia del caso si necesitas más contexto antes de responder el inventario.',
+              label: 'Ver timeline',
+              icon: 'bi bi-clock-history',
+              cardIcon: 'bi bi-clock-history',
+              variant: 'outline-primary',
+              onClick: () => openFlowTimelineInline_()
+            }
+          },
+          4: {
+            icon: 'bi bi-receipt-cutoff',
+            title: 'Registra la orden de venta',
+            subtitle: 'La acción principal aquí es dejar el número de OV correctamente asociado al cobro.',
+            pdfLabel: '',
+            guide: 'Completa el número de OV antes de pasar a las etapas logísticas posteriores.',
+            fields: [['flowOvFieldWrap', 'flowOvFieldPlaceholder']],
+            pdfs: [],
+            primary: {
+              title: 'Registrar OV',
+              text: 'Ingresa el número de orden de venta para habilitar el siguiente tramo del flujo.',
+              label: 'Completar OV',
+              icon: 'bi bi-pencil-square',
+              cardIcon: 'bi bi-receipt-cutoff',
+              onClick: () => focusFlowElement_('gf_ovNumero')
+            },
+            secondary: {
+              title: 'Ver timeline',
+              text: 'Consulta los hitos previos del cobro antes de asociar la OV si necesitas verificar información.',
+              label: 'Ver timeline',
+              icon: 'bi bi-clock-history',
+              cardIcon: 'bi bi-clock-history',
+              variant: 'outline-primary',
+              onClick: () => openFlowTimelineInline_()
+            }
+          },
+          5: {
+            icon: 'bi bi-signpost-split-fill',
+            title: 'Asigna la ruta',
+            subtitle: 'Prioriza el identificador de ruta para mantener la trazabilidad operativa del traslado.',
+            pdfLabel: '',
+            guide: 'Aquí lo importante es dejar vinculada la ruta correcta. El resto del detalle queda como soporte.',
+            fields: [['flowRutaFieldWrap', 'flowRutaFieldPlaceholder']],
+            pdfs: [],
+            primary: {
+              title: 'Registrar ruta',
+              text: 'Ingresa el ID de ruta para continuar con la facturación del servicio.',
+              label: 'Completar ruta',
+              icon: 'bi bi-pencil-square',
+              cardIcon: 'bi bi-signpost-split',
+              onClick: () => focusFlowElement_('gf_rutaId')
+            },
+            secondary: {
+              title: 'Ver timeline',
+              text: 'Abre la trazabilidad si necesitas validar el tramo previo antes de asignar la ruta.',
+              label: 'Ver timeline',
+              icon: 'bi bi-clock-history',
+              cardIcon: 'bi bi-clock-history',
+              variant: 'outline-primary',
+              onClick: () => openFlowTimelineInline_()
+            }
+          },
+          6: {
+            icon: 'bi bi-file-text-fill',
+            title: 'Registra la factura',
+            subtitle: 'Deja arriba del todo el número y el PDF de factura para que esta etapa sea directa de operar.',
+            pdfLabel: 'Documento principal',
+            guide: 'La combinación clave aquí es número de factura más PDF de factura. Todo lo demás es complemento.',
+            fields: [['flowFacturaNumeroWrap', 'flowFacturaNumeroPlaceholder']],
+            pdfs: [['flowFacturaCard', 'flowFacturaCardPlaceholder']],
+            primary: {
+              title: 'Registrar factura',
+              text: 'Completa el número y carga el PDF para dejar la facturación lista.',
+              label: 'Completar factura',
+              icon: 'bi bi-pencil-square',
+              cardIcon: 'bi bi-file-text',
+              onClick: () => focusFlowElement_('gf_facturaNumero')
+            },
+            secondary: {
+              title: 'Cargar PDF',
+              text: 'Si ya tienes la evidencia lista, puedes ir directo a seleccionar el archivo.',
+              label: 'Elegir PDF',
+              icon: 'bi bi-upload',
+              cardIcon: 'bi bi-cloud-arrow-up',
+              variant: 'outline-primary',
+              onClick: () => clickFlowElement_('btnPickFactura')
+            }
+          },
+          7: {
+            icon: 'bi bi-pen-fill',
+            title: 'Carga la firma de factura',
+            subtitle: 'Esta etapa se resuelve con la evidencia firmada como documento protagonista del flujo.',
+            pdfLabel: 'Documento principal',
+            guide: 'La firma de factura debe quedar arriba y visible para evitar búsquedas innecesarias dentro del modal.',
+            fields: [],
+            pdfs: [['flowFirmaFacturaCard', 'flowFirmaFacturaCardPlaceholder']],
+            primary: {
+              title: 'Subir firma de factura',
+              text: 'Selecciona la evidencia firmada para completar esta etapa documental.',
+              label: 'Elegir PDF',
+              icon: 'bi bi-upload',
+              cardIcon: 'bi bi-pen',
+              onClick: () => clickFlowElement_('btnPickFirmaFactura')
+            },
+            secondary: {
+              title: 'Ver timeline',
+              text: 'Consulta el historial del caso si necesitas revisar quién dejó lista la factura.',
+              label: 'Ver timeline',
+              icon: 'bi bi-clock-history',
+              cardIcon: 'bi bi-clock-history',
+              variant: 'outline-primary',
+              onClick: () => openFlowTimelineInline_()
+            }
+          },
+          8: {
+            icon: 'bi bi-journal-text',
+            title: 'Registra la liquidación',
+            subtitle: 'El foco de esta etapa es dejar la referencia de liquidación clara antes del pago.',
+            pdfLabel: '',
+            guide: 'Completa la referencia de liquidación para preparar correctamente el tramo de pago.',
+            fields: [['flowLiquidacionWrap', 'flowLiquidacionPlaceholder']],
+            pdfs: [],
+            primary: {
+              title: 'Registrar liquidación',
+              text: 'Ingresa la referencia de liquidación para continuar al tramo de pago.',
+              label: 'Completar liquidación',
+              icon: 'bi bi-pencil-square',
+              cardIcon: 'bi bi-journal-text',
+              onClick: () => focusFlowElement_('gf_liquidacionRef')
+            },
+            secondary: {
+              title: 'Ver timeline',
+              text: 'Abre el historial del caso si necesitas revisar información previa antes de liquidar.',
+              label: 'Ver timeline',
+              icon: 'bi bi-clock-history',
+              cardIcon: 'bi bi-clock-history',
+              variant: 'outline-primary',
+              onClick: () => openFlowTimelineInline_()
+            }
+          },
+          9: {
+            icon: 'bi bi-cash-coin',
+            title: 'Registro de pago',
+            subtitle: 'Completa aquí el número de operación, el monto y la constancia antes de guardar la etapa.',
+            pdfLabel: 'Documento principal',
+            guide: 'Si este pago corresponde solo a esta boleta, regístralo aquí. Si una constancia cubre varias boletas, usa Gestión de pagos.',
+            fields: [
+              ['flowDebitoFieldWrap', 'flowDebitoFieldPlaceholder'],
+              ['flowMontoFieldWrap', 'flowMontoFieldPlaceholder']
+            ],
+            pdfs: [['flowConstanciaCard', 'flowConstanciaCardPlaceholder']],
+            primary: {
+              title: 'Registrar pago individual',
+              text: 'Usa este camino cuando el número de operación y la constancia pertenecen solo a esta boleta.',
+              label: 'Completar pago',
+              icon: 'bi bi-pencil-square',
+              cardIcon: 'bi bi-cash-coin',
+              onClick: () => focusFlowElement_('gf_debitoRef')
+            },
+            secondary: {
+              title: 'Asociar pago agrupado',
+              text: 'Si una sola constancia cubre varias boletas, deriva el registro al módulo especializado.',
+              label: 'Crear pago agrupado',
+              icon: 'bi bi-diagram-3',
+              cardIcon: 'bi bi-diagram-3',
+              variant: 'outline-primary',
+              onClick: () => crearPagoAgrupadoDesdeFlow()
+            }
+          },
+          10: {
+            icon: 'bi bi-check2-square',
+            title: 'Aplicación del pago',
+            subtitle: 'La acción principal aquí es dejar la referencia final de aplicación y validar el cierre del pago.',
+            pdfLabel: '',
+            guide: 'Esta etapa consolida la aplicación final. Usa Gestión de pagos solo como apoyo para rastrear el pago asociado.',
+            fields: [['flowAplicacionPagoWrap', 'flowAplicacionPagoPlaceholder']],
+            pdfs: [],
+            primary: {
+              title: 'Registrar aplicación',
+              text: 'Completa la referencia de aplicación para dejar el pago correctamente cerrado.',
+              label: 'Completar aplicación',
+              icon: 'bi bi-pencil-square',
+              cardIcon: 'bi bi-check2-square',
+              onClick: () => focusFlowElement_('gf_facturasDebitar')
+            },
+            secondary: {
+              title: 'Ver pago asociado',
+              text: 'Abre Gestión de pagos para revisar la referencia o constancia vinculada a esta boleta.',
+              label: 'Abrir Gestión de pagos',
+              icon: 'bi bi-wallet2',
+              cardIcon: 'bi bi-wallet2',
+              variant: 'outline-primary',
+              onClick: () => abrirPagosDesdeFlow()
+            }
+          }
+        };
+        return stageMap[Number(idx)] || null;
+      }
+
       function syncFlowPaymentLayout_(idx) {
         const modalContent = document.querySelector('#modalFlow .flow-modal');
         const paymentFocus = document.getElementById('flowPaymentFocus');
-        const constanciaCard = document.getElementById('flowConstanciaCard');
+        const focusIcon = document.getElementById('flowPrimaryFocusIcon');
+        const focusTitle = document.getElementById('flowPrimaryFocusTitle');
+        const focusSubtitle = document.getElementById('flowPrimaryFocusSubtitle');
+        const focusGuide = document.getElementById('flowPrimaryFocusGuide');
+        const pdfSection = document.getElementById('flowPrimaryFocusPdfSection');
+        const pdfLabel = document.getElementById('flowPrimaryFocusPdfLabel');
+        const fieldGrid = document.getElementById('flowPrimaryFocusFields');
         const futureLabel = document.getElementById('futureFieldsToggleLabel');
         const futureHint = document.getElementById('futureFieldsToggleHint');
+        const hostA = document.getElementById('flowPaymentFieldHost');
+        const hostB = document.getElementById('flowPaymentAmountHost');
+        const hostPdf = document.getElementById('flowPaymentPdfHost');
         const isPaymentStage = Number(idx) === 9;
         const isApplyStage = Number(idx) === 10;
+        const focusConfig = getFlowPrimaryFocusConfig_(idx);
+        const nodesToRestore = [
+          ['flowInventarioStatusWrap', 'flowInventarioStatusPlaceholder'],
+          ['flowInventarioCommentWrap', 'flowInventarioCommentPlaceholder'],
+          ['flowBoletaCard', 'flowBoletaCardPlaceholder'],
+          ['flowFacturaCard', 'flowFacturaCardPlaceholder'],
+          ['flowFirmaFacturaCard', 'flowFirmaFacturaCardPlaceholder'],
+          ['flowOvFieldWrap', 'flowOvFieldPlaceholder'],
+          ['flowRutaFieldWrap', 'flowRutaFieldPlaceholder'],
+          ['flowFacturaNumeroWrap', 'flowFacturaNumeroPlaceholder'],
+          ['flowLiquidacionWrap', 'flowLiquidacionPlaceholder'],
+          ['flowDebitoFieldWrap', 'flowDebitoFieldPlaceholder'],
+          ['flowMontoFieldWrap', 'flowMontoFieldPlaceholder'],
+          ['flowConstanciaCard', 'flowConstanciaCardPlaceholder'],
+          ['flowAplicacionPagoWrap', 'flowAplicacionPagoPlaceholder']
+        ];
+
+        nodesToRestore.forEach(([elementId, placeholderId]) => {
+          restoreFlowNodeFromPlaceholder_(elementId, placeholderId);
+        });
 
         if (modalContent) {
           modalContent.classList.toggle('is-stage-payment', isPaymentStage);
         }
 
-        if (paymentFocus) paymentFocus.classList.toggle('d-none', !isPaymentStage);
+        if (paymentFocus) paymentFocus.classList.toggle('d-none', !focusConfig);
+        if (focusIcon) focusIcon.className = focusConfig?.icon || 'bi bi-lightning-charge';
+        if (focusTitle) focusTitle.textContent = focusConfig?.title || 'Acción principal';
+        if (focusSubtitle) focusSubtitle.textContent = focusConfig?.subtitle || 'Completa aquí la acción principal de la etapa actual.';
+        if (focusGuide) focusGuide.textContent = focusConfig?.guide || 'Sigue la acción principal de esta etapa para mantener el flujo limpio y rápido.';
+
+        if (hostA) hostA.innerHTML = '';
+        if (hostB) hostB.innerHTML = '';
+        if (hostPdf) hostPdf.innerHTML = '';
+
+        const fieldCount = Array.isArray(focusConfig?.fields) ? focusConfig.fields.length : 0;
+        const pdfCount = Array.isArray(focusConfig?.pdfs) ? focusConfig.pdfs.length : 0;
+
+        if (focusConfig) {
+          (focusConfig.fields || []).forEach(([elementId], index) => {
+            moveFlowNodeToHost_(elementId, index === 0 ? 'flowPaymentFieldHost' : 'flowPaymentAmountHost');
+          });
+          (focusConfig.pdfs || []).forEach(([elementId]) => {
+            moveFlowNodeToHost_(elementId, 'flowPaymentPdfHost');
+          });
+        }
+
+        toggleFlowHostVisibility_('flowPaymentFieldHost', fieldCount >= 1);
+        toggleFlowHostVisibility_('flowPaymentAmountHost', fieldCount >= 2);
+        if (fieldGrid) {
+          fieldGrid.classList.toggle('d-none', fieldCount === 0);
+          fieldGrid.classList.toggle('is-single', fieldCount === 1);
+        }
+        if (pdfSection) pdfSection.classList.toggle('d-none', pdfCount === 0);
+        if (pdfLabel) pdfLabel.textContent = focusConfig?.pdfLabel || 'Documento principal';
+
+        const constanciaCard = document.getElementById('flowConstanciaCard');
         if (constanciaCard) constanciaCard.classList.toggle('flow-payment-priority', isPaymentStage);
 
-        if (isPaymentStage) {
-          moveFlowNodeToHost_('flowDebitoFieldWrap', 'flowPaymentFieldHost');
-          moveFlowNodeToHost_('flowMontoFieldWrap', 'flowPaymentAmountHost');
-          moveFlowNodeToHost_('flowConstanciaCard', 'flowPaymentPdfHost');
-          if (futureLabel) futureLabel.textContent = 'Datos complementarios';
-          if (futureHint) futureHint.textContent = 'Referencias posteriores y datos de cierre del caso.';
-        } else {
-          restoreFlowNodeFromPlaceholder_('flowDebitoFieldWrap', 'flowDebitoFieldPlaceholder');
-          restoreFlowNodeFromPlaceholder_('flowMontoFieldWrap', 'flowMontoFieldPlaceholder');
-          restoreFlowNodeFromPlaceholder_('flowConstanciaCard', 'flowConstanciaCardPlaceholder');
-          if (futureLabel) futureLabel.textContent = isApplyStage ? 'Datos de cierre' : 'Campos posteriores';
-          if (futureHint) {
-            futureHint.textContent = isApplyStage
-              ? 'Completa la referencia de aplicación y el cierre del pago.'
-              : 'Se habilitan según la etapa';
-          }
+        setFlowChoiceCard_('Primary', focusConfig?.primary || null);
+        setFlowChoiceCard_('Secondary', focusConfig?.secondary || null);
+
+        if (futureLabel) {
+          futureLabel.textContent = isApplyStage
+            ? 'Datos de cierre'
+            : isPaymentStage
+              ? 'Datos complementarios'
+              : 'Datos siguientes';
+        }
+        if (futureHint) {
+          if (isApplyStage) futureHint.textContent = 'Completa la referencia final y el cierre operativo del pago.';
+          else if (isPaymentStage) futureHint.textContent = 'Referencias posteriores y datos de cierre del caso.';
+          else futureHint.textContent = 'Los campos restantes se habilitan según avance la etapa.';
         }
       }
 
@@ -11409,7 +11800,7 @@
         const wrap = document.getElementById('flowPaymentBridge');
         if (!wrap) return;
         const idx = parseEtapaIdx(flowData?.etapa || document.getElementById('gf_etapa')?.value || '');
-        const show = idx >= 10;
+        const show = idx === 10;
         wrap.classList.toggle('d-none', !show);
         if (!show) return;
 
@@ -11453,10 +11844,9 @@
       }
 
       function updateFlowObservadoBoxUi(flowData) {
-        const idx = parseEtapaIdx(flowData?.etapa || document.getElementById('gf_etapa')?.value || '');
         const estado = normalizeEstadoUI(flowData?.estado || document.getElementById('gf_estado')?.value || '');
         const motivo = String(document.getElementById('gf_motivoObservacion')?.value || '').trim();
-        const show = estado === 'Observado' || !!motivo || idx !== 9;
+        const show = estado === 'Observado' || !!motivo;
         setFlowObservadoBoxVisible_(show);
       }
 
