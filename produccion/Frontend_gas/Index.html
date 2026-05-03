@@ -8590,17 +8590,18 @@
           </div>
           <div class="table-responsive border rounded bg-white">
             <table class="table table-sm align-middle mb-0">
-              <thead class="table-light">
-                <tr>
-                  <th>Código</th>
-                  <th>Nombre</th>
-                  <th>Moneda</th>
-                  <th>Timezone</th>
-                  <th>Locale</th>
-                  <th>Activo</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
+            <thead class="table-light">
+              <tr>
+                <th>Código</th>
+                <th>Nombre</th>
+                <th>Moneda</th>
+                <th>Timezone</th>
+                <th>Locale</th>
+                <th>Bodegas</th>
+                <th>Activo</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
               <tbody id="cfgCountriesBody"></tbody>
             </table>
           </div>
@@ -9334,6 +9335,11 @@
               <div class="col-8">
                 <label class="form-label small fw-bold">Locale</label>
                 <input type="text" class="form-control" id="cfgCountryLocale" placeholder="es-PE">
+              </div>
+              <div class="col-12">
+                <label class="form-label small fw-bold">Bodegas</label>
+                <textarea class="form-control" id="cfgCountryBodegas" rows="3" placeholder="60000&#10;60004"></textarea>
+                <div class="form-text">Una bodega por línea. También puedes pegar separadas por coma.</div>
               </div>
               <div class="col-4 d-flex align-items-end">
                 <div class="form-check form-switch mb-2">
@@ -12555,6 +12561,7 @@
         applyPilotoOptions_(data.pilotos || []);
         applyResponsableOptions_(data.responsables || []);
         applyMaestroItems_(data.items || []);
+        applyBodegaOptionsForCountry_(getSelectedResponsableContext_().countryCode);
       }
 
       function syncCobroCatalogCacheFromModules_() {
@@ -12638,6 +12645,49 @@
         }
       }
 
+      function parseCountryBodegasUi_(value) {
+        const source = Array.isArray(value)
+          ? value
+          : String(value == null ? '' : value).split(/\r?\n|,/);
+        const out = [];
+        const seen = new Set();
+        source.forEach(item => {
+          const normalized = String(item || '').trim();
+          const key = normalized.toUpperCase();
+          if (!normalized || seen.has(key)) return;
+          seen.add(key);
+          out.push(normalized);
+        });
+        return out;
+      }
+
+      function getCountryBodegasUi_(countryCode) {
+        const code = String(countryCode || '').trim().toUpperCase();
+        if (!code) return [];
+        const match = getCountryCatalogUi_().find(country => String(country.countryCode || '').trim().toUpperCase() === code);
+        return parseCountryBodegasUi_(match?.bodegas || []);
+      }
+
+      function applyBodegaOptionsForCountry_(countryCode) {
+        const select = document.getElementById('bodegaSelect');
+        if (!select) return;
+        const currentValue = String(select.value || '').trim();
+        const bodegas = getCountryBodegasUi_(countryCode);
+        const fallback = ['60000', '60004'];
+        const source = bodegas.length ? bodegas : fallback;
+        select.innerHTML = '';
+        source.forEach(bodega => {
+          const value = String(bodega || '').trim();
+          if (!value) return;
+          select.add(new Option(value, value));
+        });
+        if (currentValue && source.some(item => String(item || '').trim() === currentValue)) {
+          select.value = currentValue;
+        } else if (source.length) {
+          select.value = String(source[0] || '').trim();
+        }
+      }
+
       function getCountryDisplayLabelUi_(countryCode) {
         const code = String(countryCode || '').trim().toUpperCase();
         if (!code) return '';
@@ -12676,6 +12726,7 @@
             : '';
         }
         if (countryCodeEl) countryCodeEl.value = ctx.countryCode || '';
+        applyBodegaOptionsForCountry_(ctx.countryCode || '');
       }
 
       function applyResponsableOptions_(rows) {
@@ -15562,6 +15613,7 @@
           currency: String(item.currency || item.moneda || item.Moneda || '').trim().toUpperCase(),
           timezone: String(item.timezone || item.Timezone || '').trim(),
           locale: String(item.locale || item.Locale || '').trim(),
+          bodegas: parseCountryBodegasUi_(item.bodegas || item.Bodegas || item.bodegaList || ''),
           active: activeRaw == null ? true : (activeRaw === true || String(activeRaw).toLowerCase() === 'true' || String(activeRaw) === '1')
         };
       }
@@ -16382,6 +16434,8 @@
       }
 
       function renderConfigReglasCache_() {
+        setUiCacheData_('countries', Array.isArray(cfgRulesDataCache?.countries) ? cfgRulesDataCache.countries : []);
+        syncCobroCatalogCacheFromModules_();
         renderCfgCountries();
         renderCfgRoles();
         renderCfgStageSla();
@@ -16463,17 +16517,22 @@
         if (!tb) return;
         const rows = Array.isArray(cfgRulesDataCache?.countries) ? cfgRulesDataCache.countries : [];
         if (!rows.length) {
-          tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">Sin países configurados.</td></tr>';
+          tb.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">Sin países configurados.</td></tr>';
           return;
         }
         tb.innerHTML = rows.map(r => {
           const payload = encodeURIComponent(JSON.stringify(r || {}));
+          const bodegas = parseCountryBodegasUi_(r.bodegas || []);
+          const bodegasHtml = bodegas.length
+            ? bodegas.map(code => `<span class="badge bg-light text-dark border me-1 mb-1">${escapeHtmlUi(code)}</span>`).join('')
+            : '<span class="text-muted">Sin bodegas</span>';
           return `<tr>
             <td class="fw-bold">${escapeHtmlUi(r.countryCode || '-')}</td>
             <td>${escapeHtmlUi(r.name || '-')}</td>
             <td>${escapeHtmlUi(r.currency || '-')}</td>
             <td><small>${escapeHtmlUi(r.timezone || '-')}</small></td>
             <td>${escapeHtmlUi(r.locale || '-')}</td>
+            <td>${bodegasHtml}</td>
             <td>${r.active ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-secondary">Inactivo</span>'}</td>
             <td>
               <button class="btn btn-sm btn-outline-primary" type="button" onclick="editarCfgCountryCod('${payload}')"><i class="bi bi-pencil"></i></button>
@@ -17314,6 +17373,7 @@
         document.getElementById('cfgCountryCurrency').value = 'PEN';
         document.getElementById('cfgCountryTimezone').value = 'America/Lima';
         document.getElementById('cfgCountryLocale').value = 'es-PE';
+        document.getElementById('cfgCountryBodegas').value = '';
         document.getElementById('cfgCountryActive').checked = true;
         modalCfgCountryEl.show();
       }
@@ -17327,6 +17387,7 @@
           document.getElementById('cfgCountryCurrency').value = r.currency || '';
           document.getElementById('cfgCountryTimezone').value = r.timezone || '';
           document.getElementById('cfgCountryLocale').value = r.locale || '';
+          document.getElementById('cfgCountryBodegas').value = parseCountryBodegasUi_(r.bodegas || []).join('\n');
           document.getElementById('cfgCountryActive').checked = !!r.active;
           modalCfgCountryEl.show();
         } catch (e) {
@@ -17342,6 +17403,7 @@
           currency: document.getElementById('cfgCountryCurrency').value.trim().toUpperCase(),
           timezone: document.getElementById('cfgCountryTimezone').value.trim(),
           locale: document.getElementById('cfgCountryLocale').value.trim(),
+          bodegas: parseCountryBodegasUi_(document.getElementById('cfgCountryBodegas').value),
           active: document.getElementById('cfgCountryActive').checked
         };
         if (!obj.countryCode || !obj.name) {

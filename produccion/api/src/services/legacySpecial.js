@@ -179,8 +179,88 @@ function mapCountryRecord(row) {
     currency: String(row?.moneda || '').trim().toUpperCase(),
     timezone: String(row?.timezone || '').trim(),
     locale: String(row?.locale || '').trim(),
-    active: Boolean(row?.activo)
+    active: Boolean(row?.activo),
+    bodegas: []
   };
+}
+
+const COUNTRY_BODEGAS_SETTING_KEY = 'country_bodegas_json';
+
+function normalizeBodegaValue(value) {
+  return String(value || '').trim();
+}
+
+function normalizeBodegaList(values) {
+  const source = Array.isArray(values)
+    ? values
+    : String(values == null ? '' : values)
+      .split(/\r?\n|,/)
+      .map((item) => item.trim());
+  const out = [];
+  const seen = new Set();
+  source.forEach((value) => {
+    const normalized = normalizeBodegaValue(value);
+    const key = normalized.toUpperCase();
+    if (!normalized || seen.has(key)) return;
+    seen.add(key);
+    out.push(normalized);
+  });
+  return out;
+}
+
+async function readCountryBodegasMap() {
+  const { data, error } = await supabaseAdmin
+    .from('ct_settings')
+    .select('setting_value')
+    .eq('setting_key', COUNTRY_BODEGAS_SETTING_KEY)
+    .maybeSingle();
+  if (error) throw error;
+  const raw = String(data?.setting_value || '').trim();
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const out = {};
+    Object.entries(parsed).forEach(([countryCode, list]) => {
+      const code = normalizeCountryCode(countryCode);
+      if (!code) return;
+      out[code] = normalizeBodegaList(list);
+    });
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+async function saveCountryBodegasMap(nextMap) {
+  const payload = {};
+  Object.entries(nextMap || {}).forEach(([countryCode, list]) => {
+    const code = normalizeCountryCode(countryCode);
+    const bodegas = normalizeBodegaList(list);
+    if (!code || !bodegas.length) return;
+    payload[code] = bodegas;
+  });
+  const { error } = await supabaseAdmin
+    .from('ct_settings')
+    .upsert({
+      setting_key: COUNTRY_BODEGAS_SETTING_KEY,
+      setting_value: JSON.stringify(payload),
+      description: 'Catalogo de bodegas por pais',
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'setting_key' });
+  if (error) throw error;
+}
+
+async function attachCountryBodegas(rows) {
+  const countries = Array.isArray(rows) ? rows.map((row) => ({ ...row })) : [];
+  const bodegasMap = await readCountryBodegasMap();
+  return countries.map((country) => {
+    const countryCode = normalizeCountryCode(country?.countryCode);
+    return {
+      ...country,
+      bodegas: normalizeBodegaList(bodegasMap[countryCode] || country?.bodegas || [])
+    };
+  });
 }
 
 function mapProviderRecord(row) {
@@ -246,7 +326,58 @@ async function listFrontendCountries() {
     .eq('activo', true)
     .order('country_code', { ascending: true });
   if (error) throw error;
-  return (data || []).map(mapCountryRecord);
+  return attachCountryBodegas((data || []).map(mapCountryRecord));
+}
+
+async function getRuleConfigDataSpecial(args) {
+  const runtime = getGasRuntime();
+  const result = await runtime.call('getRuleConfigData', Array.isArray(args) ? args : []);
+  const countries = await attachCountryBodegas(Array.isArray(result?.countries) ? result.countries : []);
+  return {
+    ...(result && typeof result === 'object' ? result : {}),
+    countries,
+    success: result?.success !== false
+  };
+}
+
+async function saveCfgCountrySpecial(args) {
+  const runtime = getGasRuntime();
+  const countryObj = (args?.[0] && typeof args[0] === 'object') ? { ...args[0] } : {};
+  const actorEmail = args?.[1];
+  const bodegas = normalizeBodegaList(countryObj.bodegas);
+  delete countryObj.bodegas;
+
+  const result = await runtime.call('saveCfgCountry', [countryObj, actorEmail]);
+  if (!result?.success) return result;
+
+  const countryCode = normalizeCountryCode(countryObj.countryCode);
+  if (countryCode) {
+    const currentMap = await readCountryBodegasMap();
+    if (bodegas.length) currentMap[countryCode] = bodegas;
+    else delete currentMap[countryCode];
+    await saveCountryBodegasMap(currentMap);
+  }
+
+  return result;
+}
+
+async function deleteCfgCountrySpecial(args) {
+  const runtime = getGasRuntime();
+  const row = args?.[0];
+  const actorEmail = args?.[1];
+  const before = await getRuleConfigDataSpecial([actorEmail]);
+  const result = await runtime.call('deleteCfgCountry', [row, actorEmail]);
+  if (!result?.success) return result;
+
+  const deletedRow = (Array.isArray(before?.countries) ? before.countries : []).find((item) => Number(item?.row || 0) === Number(row || 0));
+  const countryCode = normalizeCountryCode(deletedRow?.countryCode);
+  if (countryCode) {
+    const currentMap = await readCountryBodegasMap();
+    delete currentMap[countryCode];
+    await saveCountryBodegasMap(currentMap);
+  }
+
+  return result;
 }
 
 async function listFrontendProviders(actorCountry) {
@@ -858,6 +989,12 @@ export async function executeLegacySpecial(method, args, { req }) {
       return buildStorageBrowserUrl(LEGACY_ROOT_PREFIX, req);
     case 'getDataForFrontend':
       return getDataForFrontendSpecial(args);
+    case 'getRuleConfigData':
+      return getRuleConfigDataSpecial(args);
+    case 'saveCfgCountry':
+      return saveCfgCountrySpecial(args);
+    case 'deleteCfgCountry':
+      return deleteCfgCountrySpecial(args);
     case 'adminGetProveedores':
       return adminGetProveedoresSpecial(args);
     case 'adminSaveProvider':
