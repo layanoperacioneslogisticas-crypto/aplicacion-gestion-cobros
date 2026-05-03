@@ -57,6 +57,8 @@ const ETAPAS_COBRO = [
   '10. Aplicación de pago'
 ];
 
+const GROUPED_PAYMENT_AUDIT_ACTION = 'Pago agrupado asociado';
+
 function normalizeRoleKey(value) {
   return String(value || '')
     .normalize('NFD')
@@ -97,10 +99,62 @@ async function insertAudit(payload) {
   if (error) throw error;
 }
 
+function parseGroupedPaymentAuditDetail(raw) {
+  const txt = String(raw || '').trim();
+  if (!txt) return null;
+  try {
+    const parsed = JSON.parse(txt);
+    if (parsed && typeof parsed === 'object' && String(parsed.paymentId || '').trim()) {
+      return {
+        paymentId: String(parsed.paymentId || '').trim(),
+        operationNumber: String(parsed.operationNumber || '').trim(),
+        paymentDate: String(parsed.paymentDate || '').trim(),
+        totalAmount: Number(parsed.totalAmount || 0),
+        notes: String(parsed.notes || '').trim(),
+        constanciaPagoUrl: String(parsed.constanciaPagoUrl || '').trim(),
+        allocatedAmount: Number(parsed.allocatedAmount || 0),
+        cobroCount: Number(parsed.cobroCount || 0)
+      };
+    }
+  } catch {
+    // Ignore non-JSON or legacy rows.
+  }
+  return null;
+}
+
+function buildGroupedPaymentApplicationReference(detail) {
+  if (!detail?.paymentId) return '';
+  const op = String(detail.operationNumber || '').trim();
+  return op
+    ? `PAGO AGRUPADO ${detail.paymentId} · OP ${op}`
+    : `PAGO AGRUPADO ${detail.paymentId}`;
+}
+
 async function getCobroById(id) {
   const { data, error } = await supabaseAdmin.from('ct_cobros').select('*').eq('id', id).maybeSingle();
   if (error) throw error;
   return data || null;
+}
+
+async function getLatestGroupedPaymentAuditByCobroId(cobroId) {
+  const wantedId = String(cobroId || '').trim();
+  if (!wantedId) return null;
+  const { data, error } = await supabaseAdmin
+    .from('ct_audit_log')
+    .select('detalle,created_at')
+    .eq('cobro_id', wantedId)
+    .eq('accion', GROUPED_PAYMENT_AUDIT_ACTION)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : null;
+  const detail = parseGroupedPaymentAuditDetail(row?.detalle);
+  if (!detail) return null;
+  return {
+    ...detail,
+    createdAt: String(row?.created_at || '').trim(),
+    applicationReference: buildGroupedPaymentApplicationReference(detail)
+  };
 }
 
 function actorCanAccessRow(profile, row) {
@@ -614,6 +668,17 @@ async function getCobroFlowDataSpecial(args) {
     if (idxMotivo >= 0) editableFields.splice(idxMotivo, 1);
   }
 
+  const groupedPayment = await getLatestGroupedPaymentAuditByCobroId(cobro.id);
+  const hasIndividualPaymentData = Boolean(
+    rowText([WF.debitoRef]) ||
+    rowText([WF.constanciaPagoUrl]) ||
+    rowText([WF.montoPago])
+  );
+  const paymentSource = groupedPayment?.paymentId
+    ? 'grouped'
+    : (hasIndividualPaymentData ? 'individual' : '');
+  const applicationSuggestion = groupedPayment?.applicationReference || (hasIndividualPaymentData ? 'OK' : '');
+
   return {
     success: true,
     id: String(cobro.id || ''),
@@ -643,6 +708,19 @@ async function getCobroFlowDataSpecial(args) {
     constanciaPagoUrl: rowText([WF.constanciaPagoUrl]),
     rmNumero: rowText([WF.rmNumero]),
     facturasDebitar: rowText([WF.facturasDebitar]),
+    paymentSource,
+    applicationSuggestion,
+    groupedPayment: groupedPayment ? {
+      paymentId: groupedPayment.paymentId,
+      operationNumber: groupedPayment.operationNumber,
+      paymentDate: groupedPayment.paymentDate,
+      totalAmount: groupedPayment.totalAmount,
+      notes: groupedPayment.notes,
+      constanciaPagoUrl: groupedPayment.constanciaPagoUrl,
+      allocatedAmount: groupedPayment.allocatedAmount,
+      cobroCount: groupedPayment.cobroCount,
+      applicationReference: groupedPayment.applicationReference
+    } : null,
     etapaAnterior: estadoActual === 'Observado' ? etapaObservada : '',
     etapaRetornoObservado: estadoActual === 'Observado' ? etapaRetornoObservado : '',
     areaObservacion,

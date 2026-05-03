@@ -11409,7 +11409,27 @@
         clickFlowElement_('btnFlowTimelineInline');
       }
 
+      function syncFlowApplicationSuggestion_(flowData) {
+        const idx = parseEtapaIdx(flowData?.etapa || document.getElementById('gf_etapa')?.value || '');
+        if (idx !== 10) return;
+        const input = document.getElementById('gf_facturasDebitar');
+        if (!input || input.disabled) return;
+        const source = String(flowData?.paymentSource || '').trim() || 'suggested';
+        if (String(input.value || '').trim()) {
+          input.dataset.autofillSource = source;
+          return;
+        }
+        const suggestion = String(flowData?.applicationSuggestion || '').trim();
+        if (!suggestion) return;
+        input.value = suggestion;
+        input.dataset.autofillSource = source;
+        input.placeholder = input.dataset.autofillSource === 'grouped'
+          ? 'Referencia autocompletada desde Gestión de pagos'
+          : 'OK';
+      }
+
       function getFlowPrimaryFocusConfig_(idx) {
+        const paymentSource = String(document.getElementById('gf_facturasDebitar')?.dataset.autofillSource || '').trim();
         const stageMap = {
           1: {
             icon: 'bi bi-play-circle-fill',
@@ -11656,7 +11676,9 @@
             title: 'Aplicación del pago',
             subtitle: 'La acción principal aquí es dejar la referencia final de aplicación y validar el cierre del pago.',
             pdfLabel: '',
-            guide: 'Esta etapa consolida la aplicación final. Usa Gestión de pagos solo como apoyo para rastrear el pago asociado.',
+            guide: paymentSource === 'grouped'
+              ? 'La referencia se completa automáticamente desde Gestión de pagos. Confirma y guarda para cerrar la boleta.'
+              : 'Si el pago fue individual, la referencia sugerida será OK. Solo confirma y guarda para cerrar la boleta.',
             fields: [['flowAplicacionPagoWrap', 'flowAplicacionPagoPlaceholder']],
             pdfs: [],
             primary: {
@@ -11857,6 +11879,7 @@
       function applyFlowUi(etapaStr, cacheRow, flowData) {
         const idx = parseEtapaIdx(etapaStr);
         flowStageCatalogCurrent = Array.isArray(flowData?.stageCatalog) ? flowData.stageCatalog.slice() : [];
+        syncFlowApplicationSuggestion_(flowData || {});
         syncFlowPaymentLayout_(idx);
         renderFlowStepper(idx, flowData || {});
         renderFlowProgress(idx);
