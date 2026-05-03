@@ -12668,13 +12668,26 @@
         return parseCountryBodegasUi_(match?.bodegas || []);
       }
 
+      function ensureCountryBodegasConfiguredUi_(countryCode, opts) {
+        const code = String(countryCode || '').trim().toUpperCase();
+        const options = (opts && typeof opts === 'object') ? opts : {};
+        const bodegas = getCountryBodegasUi_(code);
+        if (bodegas.length) return bodegas;
+        if (options.silent) return [];
+        const countryLabel = code ? getCountryDisplayLabelUi_(code) : 'el país seleccionado';
+        Swal.fire(
+          'Bodegas requeridas',
+          `No hay bodegas configuradas para ${countryLabel}. Ve a Config reglas > Países y registra al menos una bodega antes de generar la boleta.`,
+          'warning'
+        );
+        return [];
+      }
+
       function applyBodegaOptionsForCountry_(countryCode) {
         const select = document.getElementById('bodegaSelect');
         if (!select) return;
         const currentValue = String(select.value || '').trim();
-        const bodegas = getCountryBodegasUi_(countryCode);
-        const fallback = ['60000', '60004'];
-        const source = bodegas.length ? bodegas : fallback;
+        const source = ensureCountryBodegasConfiguredUi_(countryCode, { silent: true });
         select.innerHTML = '';
         source.forEach(bodega => {
           const value = String(bodega || '').trim();
@@ -18558,9 +18571,16 @@
           Swal.fire('Responsable', 'Seleccione un responsable con país asignado.', 'warning');
           return;
         }
+        const bodegas = ensureCountryBodegasConfiguredUi_(responsableCtx.countryCode);
+        if (!bodegas.length) return;
+        const bodegaValue = String(document.getElementById('bodegaSelect')?.value || '').trim();
+        if (!bodegaValue) {
+          Swal.fire('Bodega', 'Seleccione una bodega válida para el país actual.', 'warning');
+          return;
+        }
         document.getElementById('prev_fecha').innerText = new Date().toLocaleDateString('es-PE');
         document.getElementById('prev_responsable').innerText = responsableCtx.nombre;
-        document.getElementById('prev_bodega').innerText = document.getElementById('bodegaSelect').value;
+        document.getElementById('prev_bodega').innerText = bodegaValue;
         document.getElementById('prev_c9').innerText = document.getElementById('c9').value;
         document.getElementById('prev_licencia').innerText = document.getElementById('licencia').value;
         document.getElementById('prev_unidad').innerText = document.getElementById('unidad').value;
@@ -18604,6 +18624,13 @@
             Swal.fire('Responsable', 'Seleccione un responsable con país asignado.', 'warning');
             return;
           }
+          const bodegas = ensureCountryBodegasConfiguredUi_(responsableCtx.countryCode);
+          if (!bodegas.length) return;
+          const bodegaValue = String(document.getElementById('bodegaSelect')?.value || '').trim();
+          if (!bodegaValue) {
+            Swal.fire('Bodega', 'Seleccione una bodega válida para el país actual.', 'warning');
+            return;
+          }
           mostrarLoading(true);
           const obj = {
             userEmail: usuarioSesion.email, passwordConfirmation: pass,
@@ -18611,7 +18638,7 @@
             responsableEmail: responsableCtx.email,
             countryCode: responsableCtx.countryCode,
             countryName: responsableCtx.countryName,
-            bodega: document.getElementById('bodegaSelect').value,
+            bodega: bodegaValue,
             proveedorCodigo: document.getElementById('proveedorSelect').value,
             proveedorNombre: document.getElementById('proveedorSelect').options[document.getElementById('proveedorSelect').selectedIndex].text,
             pilotoNombre: document.getElementById('pilotoSelect').options[document.getElementById('pilotoSelect').selectedIndex].text,

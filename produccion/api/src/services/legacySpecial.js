@@ -263,6 +263,17 @@ async function attachCountryBodegas(rows) {
   });
 }
 
+async function assertCountryHasConfiguredBodegas(countryCode) {
+  const code = normalizeCountryCode(countryCode);
+  if (!code) return { ok: false, message: 'No se pudo determinar el país de la boleta.' };
+  const bodegasMap = await readCountryBodegasMap();
+  const bodegas = normalizeBodegaList(bodegasMap[code] || []);
+  if (!bodegas.length) {
+    return { ok: false, message: `No hay bodegas configuradas para ${code}. Configure al menos una en Config reglas > Países.` };
+  }
+  return { ok: true, bodegas };
+}
+
 function mapProviderRecord(row) {
   return {
     codigo: String(row?.codigo || '').trim(),
@@ -1056,6 +1067,17 @@ async function procesarCobroSpecial(args, req) {
   formObject.responsableEmail = responsableCtx.email;
   formObject.countryCode = responsableCtx.countryCode;
   formObject.countryName = responsableCtx.countryName;
+  const bodegasCheck = await assertCountryHasConfiguredBodegas(formObject.countryCode);
+  if (!bodegasCheck.ok) {
+    return { status: 'error', message: bodegasCheck.message };
+  }
+  const bodegaValue = String(formObject.bodega || '').trim();
+  if (!bodegaValue) {
+    return { status: 'error', message: 'Debe seleccionar una bodega válida.' };
+  }
+  if (!bodegasCheck.bodegas.includes(bodegaValue)) {
+    return { status: 'error', message: `La bodega ${bodegaValue} no está habilitada para ${formObject.countryCode}.` };
+  }
 
   let items = [];
   try {
