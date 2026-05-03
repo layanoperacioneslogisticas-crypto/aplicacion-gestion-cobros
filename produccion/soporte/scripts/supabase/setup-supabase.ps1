@@ -19,9 +19,10 @@ if (-not $ProjectId -or -not $AnonKey -or -not $ServiceRoleKey) {
 
 $ProjectUrl = "https://$ProjectId.supabase.co"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
 
 # Crear archivo .env para el frontend
-$FrontendEnvPath = Join-Path $ScriptDir "web\.env.local"
+$FrontendEnvPath = Join-Path $ProjectRoot "web\.env"
 $FrontendEnv = @"
 VITE_SUPABASE_URL=$ProjectUrl
 VITE_SUPABASE_ANON_KEY=$AnonKey
@@ -31,7 +32,7 @@ Set-Content -Path $FrontendEnvPath -Value $FrontendEnv
 Write-Host "✓ Creado: $FrontendEnvPath" -ForegroundColor Green
 
 # Crear archivo .env para el backend
-$BackendEnvPath = Join-Path $ScriptDir "api\.env.local"
+$BackendEnvPath = Join-Path $ProjectRoot "api\.env"
 $BackendEnv = @"
 PORT=3001
 CORS_ORIGIN=http://localhost:5173
@@ -58,8 +59,8 @@ Write-Host "✓ Creado: $SupabaseEnvPath" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "Configuración completada:" -ForegroundColor Cyan
-Write-Host "  - Frontend: web\.env.local"
-Write-Host "  - Backend: api\.env.local"
+Write-Host "  - Frontend: web\.env"
+Write-Host "  - Backend: api\.env"
 Write-Host ""
 Write-Host "Próximos pasos:" -ForegroundColor Cyan
 Write-Host "  1. Ejecuta: .\.tools\supabase-cli\supabase.exe link --project-ref $ProjectId"

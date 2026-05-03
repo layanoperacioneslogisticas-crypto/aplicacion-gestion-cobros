@@ -10278,7 +10278,7 @@
       <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title fw-bold">Nuevo pago agrupado</h5>
+            <h5 class="modal-title fw-bold" id="pagoAgrupadoModalTitle">Nuevo pago agrupado</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
@@ -10298,6 +10298,7 @@
               <div class="col-md-2">
                 <label class="form-label small fw-bold">PDF constancia</label>
                 <input id="payConstanciaFile" type="file" class="form-control" accept=".pdf,application/pdf">
+                <div id="payConstanciaHelp" class="form-text">Adjunta la constancia en PDF.</div>
               </div>
               <div class="col-12">
                 <label class="form-label small fw-bold">Notas</label>
@@ -10369,11 +10370,23 @@
           <div class="modal-body" id="pagoDetalleBody">
             <div class="text-center py-4 text-muted">Cargando detalle...</div>
           </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-danger" type="button" id="btnEliminarPagoDetalle" onclick="eliminarPagoActualDetalle()">
+              <i class="bi bi-trash me-1"></i> Eliminar
+            </button>
+            <button class="btn btn-outline-primary" type="button" id="btnEditarPagoDetalle" onclick="editarPagoActualDetalle()">
+              <i class="bi bi-pencil-square me-1"></i> Editar
+            </button>
+            <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cerrar</button>
+          </div>
         </div>
       </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/legacy-assets/js/core/utils.js"></script>
+    <script src="/legacy-assets/js/core/loading.js"></script>
+    <script src="/legacy-assets/js/core/api.js"></script>
 
     <script>
       let itemsMaestro = [], listaItemsCompra = [], usuarioSesion = null;
@@ -10395,6 +10408,8 @@
       let pagosLoadInFlight = false;
       let pagosEligibleLoadInFlight = false;
       let pagoAgrupadoDraftContext = null;
+      let pagoAgrupadoEditContext = null;
+      let pagoDetalleActualId = '';
       let maestroImportState = { items: [], fileName: '', sheetName: '', totalRows: 0, skippedRows: 0, headerDetected: false };
       let dashboardCharts = {};
       let currentWorkspaceModule = 'panel';
@@ -10426,216 +10441,14 @@
       let cfgRulesReloadQueued = false;
       let cfgCorreoUsersLoading = false;
       let cfgCorreoUsersAreaTimer = null;
-      let loadingUiCount = 0;
-      let loadingUiTimer = null;
-      let loadingUiHardTimer = null;
-      const UI_CACHE_STALE_MS = 45000;
       const DASHBOARD_CACHE_STALE_MS = 60000;
       const HISTORIAL_CACHE_STALE_MS = 120000;
       const REPORTES_CACHE_STALE_MS = 60000;
       const COBRO_CATALOGS_STALE_MS = 60000;
-      const LOADING_UI_DELAY_MS = 120;
-      const LOADING_UI_MAX_MS = 90000;
-      const uiDataCache = {
-        dashboard: { data: null, at: 0 },
-        catalogosCobro: { data: null, at: 0 },
-        usuarios: { data: null, at: 0 },
-        proveedores: { data: null, at: 0 },
-        maestro: { data: null, at: 0 },
-        pilotos: { data: null, at: 0 },
-        historial: { data: null, at: 0 },
-        pagos: { data: null, at: 0 },
-        pagosElegibles: { data: null, at: 0 }
-      };
 
-      function buildApiQueryString_(query) {
-        const params = new URLSearchParams();
-        Object.entries(query || {}).forEach(([key, value]) => {
-          if (value == null || value === '') return;
-          params.append(key, String(value));
-        });
-        return params.toString();
-      }
-
-      const apiRouteMap_ = {
-        validarUsuario: (args) => ({ method: 'POST', path: '/api/session/login', body: { email: args[0] || '', password: args[1] || '' } }),
-        restaurarSesionUsuario: (args) => ({ method: 'GET', path: '/api/session/restore', query: { email: args[0] || '' } }),
-        getDataForFrontend: (args) => ({ method: 'GET', path: '/api/bootstrap', query: { actorEmail: args[0] || '' } }),
-        getResponsablesCatalog: () => ({ method: 'GET', path: '/api/catalog/responsables' }),
-        getEtapasCobro: () => ({ method: 'GET', path: '/api/catalog/etapas-cobro' }),
-        getDashboardStats: (args) => ({ method: 'GET', path: '/api/dashboard/stats', query: { actorEmail: args[0] || '' } }),
-        getAdvancedReportData: (args) => ({ method: 'GET', path: '/api/reports/advanced', query: { inicio: args[0] || '', fin: args[1] || '', actorEmail: args[2] || '' } }),
-        getHistorialCobros: (args) => ({ method: 'GET', path: '/api/history/cobros', query: { limit: args[0], actorEmail: args[1] || '' } }),
-        getPdfRootUrl: () => ({ method: 'GET', path: '/api/storage/pdf-root' }),
-        getPdfRootMeta: () => ({ method: 'GET', path: '/api/storage/pdf-root/meta' }),
-        getUserNotifications: (args) => {
-          const opts = (args[1] && typeof args[1] === 'object') ? args[1] : {};
-          return {
-            method: 'GET',
-            path: '/api/notifications',
-            query: {
-              actorEmail: args[0] || '',
-              limit: opts.limit,
-              includeRead: opts.includeRead,
-              force: opts.force
-            }
-          };
-        },
-        markNotificationRead: (args) => ({ method: 'POST', path: '/api/notifications/' + encodeURIComponent(String(args[0] || '')) + '/read', body: { actorEmail: args[1] || '' } }),
-        markAllNotificationsRead: (args) => ({ method: 'POST', path: '/api/notifications/read-all', body: { actorEmail: args[0] || '' } }),
-        getGestionSnapshot: (args) => ({ method: 'GET', path: '/api/gestion/snapshot', query: { actorEmail: args[0] || '' } }),
-        getGestionResumen: (args) => ({ method: 'GET', path: '/api/gestion/resumen', query: { actorEmail: args[0] || '' } }),
-        getPayments: (args) => ({ method: 'GET', path: '/api/payments', query: { actorEmail: args[0] || '', q: args[1] || '' } }),
-        getEligiblePaymentCobros: (args) => ({ method: 'GET', path: '/api/payments/eligible-cobros', query: { actorEmail: args[0] || '', q: args[1] || '' } }),
-        getPaymentDetail: (args) => ({ method: 'GET', path: '/api/payments/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
-        createGroupedPayment: (args) => ({ method: 'POST', path: '/api/payments', body: { payment: args[0] || {}, actorEmail: args[1] || '' } }),
-        deleteGestionCobros: (args) => ({ method: 'POST', path: '/api/gestion/delete', body: { ids: args[0] || [], authKey: args[1] || '', motivo: args[2] || '', actorEmail: args[3] || '', actorCtx: args[4] || {} } }),
-        bulkUpdateResponsable: (args) => ({ method: 'POST', path: '/api/gestion/responsable/bulk', body: { ids: args[0] || [], responsable: args[1] || '', actorEmail: args[2] || '', actorCtx: args[3] || {} } }),
-        bulkMarcarObservado: (args) => ({ method: 'POST', path: '/api/gestion/observado/bulk', body: { ids: args[0] || [], motivo: args[1] || '', areaDestino: args[2] || '', actorEmail: args[3] || '', actorCtx: args[4] || {} } }),
-        generarZipPdfsGestion: (args) => ({ method: 'POST', path: '/api/gestion/pdfs/zip', body: { ids: args[0] || [], actorEmail: args[1] || '', actorCtx: args[2] || {} } }),
-        getCobroTimeline: (args) => ({ method: 'GET', path: '/api/cobros/' + encodeURIComponent(String(args[0] || '')) + '/timeline', query: { limit: args[1], actorEmail: args[2] || '' } }),
-        getCobroFlowData: (args) => ({ method: 'GET', path: '/api/cobros/' + encodeURIComponent(String(args[0] || '')) + '/flow', query: { actorEmail: args[1] || '' } }),
-        listarAprobacionesCriticas: (args) => ({ method: 'GET', path: '/api/aprobaciones-criticas', query: { estado: args[0] || '', actorEmail: args[1] || '' } }),
-        resolverAprobacionCritica: (args) => ({ method: 'POST', path: '/api/aprobaciones-criticas/' + encodeURIComponent(String(args[0] || '')) + '/resolve', body: { aprobar: !!args[1], comentario: args[2] || '', actorEmail: args[3] || '', actorCtx: args[4] || {} } }),
-        procesarCobro: (args) => ({ method: 'POST', path: '/api/cobros', body: args[0] || {} }),
-        updateCobroEtapa: (args) => ({ method: 'POST', path: '/api/cobros/' + encodeURIComponent(String(args[0] || '')) + '/etapa', body: { etapa: args[1] || '', actorEmail: args[2] || '', actorCtx: args[3] || {} } }),
-        updateCobroCampos: (args) => ({ method: 'PATCH', path: '/api/cobros/' + encodeURIComponent(String(args[0] || '')) + '/campos', body: { updates: args[1] || {}, actorEmail: args[2] || '', actorCtx: args[3] || {} } }),
-        setCobroObservado: (args) => ({ method: 'POST', path: '/api/cobros/' + encodeURIComponent(String(args[0] || '')) + '/observado', body: { motivo: args[1] || '', areaDestino: args[2] || '', actorEmail: args[3] || '', actorCtx: args[4] || {} } }),
-        revertirCobroObservado: (args) => ({ method: 'POST', path: '/api/cobros/' + encodeURIComponent(String(args[0] || '')) + '/observado/revertir', body: { actorEmail: args[1] || '', actorCtx: args[2] || {} } }),
-        anularCobro: (args) => ({ method: 'POST', path: '/api/cobros/' + encodeURIComponent(String(args[0] || '')) + '/anular', body: { motivo: args[1] || '', actorEmail: args[2] || '', actorCtx: args[3] || {} } }),
-        subirPdfFlujo: (args) => ({ method: 'POST', path: '/api/cobros/' + encodeURIComponent(String(args[0] || '')) + '/files', body: { fieldName: args[1] || '', fileName: args[2] || '', mimeType: args[3] || '', dataUrl: args[4] || '', actorEmail: args[5] || '', actorCtx: args[6] || {} } }),
-        adminGetUsers: () => ({ method: 'GET', path: '/api/admin/users' }),
-        adminSaveUser: (args) => ({ method: 'POST', path: '/api/admin/users', body: { user: args[0] || {} } }),
-        adminDeleteUser: (args) => ({ method: 'DELETE', path: '/api/admin/users/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
-        adminGetProveedores: (args) => ({ method: 'GET', path: '/api/admin/providers', query: { actorEmail: args[0] || '' } }),
-        adminSaveProvider: (args) => ({ method: 'POST', path: '/api/admin/providers', body: { provider: args[0] || {}, actorEmail: args[1] || '' } }),
-        adminDeleteProvider: (args) => ({ method: 'DELETE', path: '/api/admin/providers/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
-        adminToggleProviderActivo: (args) => ({ method: 'POST', path: '/api/admin/providers/' + encodeURIComponent(String(args[0] || '')) + '/toggle-active', body: { active: !!args[1], actorEmail: args[2] || '' } }),
-        adminGetPilotos: (args) => ({ method: 'GET', path: '/api/admin/pilots', query: { actorEmail: args[0] || '' } }),
-        adminSavePilot: (args) => ({ method: 'POST', path: '/api/admin/pilots', body: { pilot: args[0] || {}, actorEmail: args[1] || '' } }),
-        adminDeletePilot: (args) => ({ method: 'DELETE', path: '/api/admin/pilots/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
-        adminGetMaestroItems: (args) => ({ method: 'GET', path: '/api/admin/maestro', query: { actorEmail: args[0] || '' } }),
-        adminGetMaestroItemsJson: (args) => ({ method: 'GET', path: '/api/admin/maestro.json', query: { actorEmail: args[0] || '' } }),
-        adminDebugMaestroState: () => ({ method: 'GET', path: '/api/admin/maestro/debug' }),
-        adminImportMaestroItems: (args) => ({ method: 'POST', path: '/api/admin/maestro/import', body: { items: args[0] || [], options: args[1] || {}, actorEmail: args[2] || '' } }),
-        adminSaveMaestroItem: (args) => ({ method: 'POST', path: '/api/admin/maestro', body: { item: args[0] || {}, actorEmail: args[1] || '' } }),
-        adminDeleteMaestroItem: (args) => {
-          const target = args[0];
-          if (target && typeof target === 'object') {
-            return {
-              method: 'DELETE',
-              path: '/api/admin/maestro',
-              body: { item: target, actorEmail: args[1] || '' }
-            };
-          }
-          return {
-            method: 'DELETE',
-            path: '/api/admin/maestro/' + encodeURIComponent(String(target || '')),
-            query: { actorEmail: args[1] || '' }
-          };
-        },
-        adminToggleMaestroActivo: (args) => {
-          const target = args[0];
-          if (target && typeof target === 'object') {
-            return {
-              method: 'POST',
-              path: '/api/admin/maestro/toggle-active',
-              body: { item: target, active: !!args[1], actorEmail: args[2] || '' }
-            };
-          }
-          return {
-            method: 'POST',
-            path: '/api/admin/maestro/' + encodeURIComponent(String(target || '')) + '/toggle-active',
-            body: { active: !!args[1], actorEmail: args[2] || '' }
-          };
-        },
-        getRuleConfigData: (args) => ({ method: 'GET', path: '/api/config/rules', query: { actorEmail: args[0] || '' } }),
-        saveCfgCountry: (args) => ({ method: 'POST', path: '/api/config/countries', body: { country: args[0] || {}, actorEmail: args[1] || '' } }),
-        deleteCfgCountry: (args) => ({ method: 'DELETE', path: '/api/config/countries/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
-        saveCfgRole: (args) => ({ method: 'POST', path: '/api/config/roles', body: { role: args[0] || {}, actorEmail: args[1] || '' } }),
-        deleteCfgRole: (args) => ({ method: 'DELETE', path: '/api/config/roles/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
-        saveCfgStageSla: (args) => ({ method: 'POST', path: '/api/config/stage-sla', body: { stageSla: args[0] || {}, actorEmail: args[1] || '' } }),
-        saveCfgStageNotify: (args) => ({ method: 'POST', path: '/api/config/stage-notify', body: { stageNotify: args[0] || {}, actorEmail: args[1] || '' } }),
-        saveCfgRule: (args) => ({ method: 'POST', path: '/api/config/rules', body: { rule: args[0] || {}, actorEmail: args[1] || '' } }),
-        deleteCfgRule: (args) => ({ method: 'DELETE', path: '/api/config/rules/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
-        saveCfgCorreo: (args) => ({ method: 'POST', path: '/api/config/correos', body: { correo: args[0] || {}, actorEmail: args[1] || '' } }),
-        deleteCfgCorreo: (args) => ({ method: 'DELETE', path: '/api/config/correos/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
-        saveCfgAuthKey: (args) => ({ method: 'POST', path: '/api/config/auth-keys', body: { authKey: args[0] || {}, actorEmail: args[1] || '' } }),
-        deleteCfgAuthKey: (args) => ({ method: 'DELETE', path: '/api/config/auth-keys/' + encodeURIComponent(String(args[0] || '')), query: { actorEmail: args[1] || '' } }),
-        saveMailTransportConfig: (args) => ({ method: 'POST', path: '/api/config/mail-transport', body: { mailTransport: args[0] || {}, actorEmail: args[1] || '' } }),
-        validarMailTransportConfig: (args) => ({ method: 'GET', path: '/api/config/mail-transport/validate', query: { actorEmail: args[0] || '' } }),
-        testMailTransportConfig: (args) => ({ method: 'POST', path: '/api/config/mail-transport/test', body: { destino: args[0] || '', actorEmail: args[1] || '' } }),
-        installDailySlaDigestTrigger: (args) => ({ method: 'POST', path: '/api/config/triggers/daily-sla-digest/install', body: { actorEmail: args[0] || '' } }),
-        adminRunDailyOverdueStageNotifications: (args) => ({ method: 'POST', path: '/api/admin/notifications/daily-overdue/run', body: { forceSend: !!args[0], actorEmail: args[1] || '' } })
-      };
-
-      async function apiFetch_(method, args) {
-        const methodKey = String(method || '').trim();
-        const routeFactory = apiRouteMap_[methodKey];
-        if (typeof routeFactory !== 'function') {
-          throw { message: 'Metodo API no soportado: ' + methodKey };
-        }
-
-        const route = routeFactory(Array.isArray(args) ? args : []);
-        const queryString = buildApiQueryString_(route.query);
-        const url = queryString ? (route.path + '?' + queryString) : route.path;
-        const headers = { Accept: 'application/json' };
-        const init = {
-          method: route.method || 'GET',
-          headers
-        };
-
-        if (route.body !== undefined) {
-          headers['Content-Type'] = 'application/json';
-          init.body = JSON.stringify(route.body);
-        }
-
-        const res = await fetch(url, init);
-        const text = await res.text();
-        let payload = null;
-        try {
-          payload = text ? JSON.parse(text) : null;
-        } catch (e) {
-          payload = text;
-        }
-        if (!res.ok) {
-          throw (payload && typeof payload === 'object')
-            ? payload
-            : { message: String(payload || ('HTTP ' + res.status)) };
-        }
-        return payload;
-      }
-
-      function createApiRunner_(successHandler, failureHandler, userObject) {
-        return new Proxy({}, {
-          get(_target, prop) {
-            if (prop === 'withSuccessHandler') {
-              return (fn) => createApiRunner_(fn, failureHandler, userObject);
-            }
-            if (prop === 'withFailureHandler') {
-              return (fn) => createApiRunner_(successHandler, fn, userObject);
-            }
-            if (prop === 'withUserObject') {
-              return (obj) => createApiRunner_(successHandler, failureHandler, obj);
-            }
-            return (...args) => {
-              return apiFetch_(prop, args)
-                .then((payload) => {
-                  if (typeof successHandler === 'function') successHandler(payload, userObject);
-                  return payload;
-                })
-                .catch((err) => {
-                  if (typeof failureHandler === 'function') {
-                    failureHandler(err, userObject);
-                    return;
-                  }
-                  console.error('API error:', err);
-                });
-            };
-          }
-        });
-      }
-
+      // Utilidades UI cargadas desde /legacy-assets/js/core/utils.js
+      // Loading UI cargado desde /legacy-assets/js/core/loading.js
+      // API core cargado desde /legacy-assets/js/core/api.js
       const rpc = createApiRunner_(null, null, null);
 
       // ✅ NUEVO: etapas (se cargan desde backend)
@@ -12347,471 +12160,7 @@
         });
       }
 
-      function getPagosSearchQuery_() {
-        const input = document.getElementById('pTexto');
-        return normalizeSearchTextUi_(input ? input.value : '');
-      }
-
-      function filterPagosRows_(rows) {
-        const list = Array.isArray(rows) ? rows : [];
-        const query = getPagosSearchQuery_();
-        if (!query) return list;
-        return list.filter(row => normalizeSearchTextUi_([
-          row.id,
-          row.operationNumber,
-          row.paymentDate,
-          row.status,
-          row.notes,
-          row.countryCode,
-          row.countryName,
-          Array.isArray(row.providerNames) ? row.providerNames.join(' ') : '',
-          Array.isArray(row.cobroIds) ? row.cobroIds.join(' ') : ''
-        ].join(' ')).includes(query));
-      }
-
-      function renderPagos(rows) {
-        const tb = document.getElementById('pagosBody');
-        if (!tb) return;
-        const list = filterPagosRows_(rows);
-        if (!list.length) {
-          const query = getPagosSearchQuery_();
-          renderTableState_(tb, 8, query ? 'No se encontraron pagos con esa búsqueda.' : 'Sin pagos registrados todavía.', 'muted');
-          return;
-        }
-        tb.innerHTML = list.map(row => {
-          const providers = Array.isArray(row.providerNames) ? row.providerNames.filter(Boolean) : [];
-          const providersLabel = providers.length
-            ? `${escapeHtmlUi(providers.slice(0, 2).join(', '))}${providers.length > 2 ? `<div class="small text-muted">+${providers.length - 2} más</div>` : ''}`
-            : '<span class="text-muted">-</span>';
-          return `
-            <tr>
-              <td class="fw-semibold">${escapeHtmlUi(row.id || '-')}</td>
-              <td>${escapeHtmlUi(row.operationNumber || '-')}</td>
-              <td>${escapeHtmlUi(row.paymentDate || '-')}</td>
-              <td class="text-end text-money">${fmtMoney(row.totalAmount || 0)}</td>
-              <td class="text-center"><span class="badge bg-light text-dark border">${fmtNum(row.cobroCount || 0)}</span></td>
-              <td>${providersLabel}</td>
-              <td><span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">${escapeHtmlUi(row.status || 'Registrado')}</span></td>
-              <td class="text-center">
-                <button class="btn btn-sm btn-outline-primary" type="button" onclick="verDetallePago('${escapeHtmlUi(row.id || '')}')">
-                  <i class="bi bi-eye me-1"></i> Ver
-                </button>
-              </td>
-            </tr>`;
-        }).join('');
-      }
-
-      function cargarPagos(force) {
-        const tb = document.getElementById('pagosBody');
-        if (!tb || pagosLoadInFlight) return;
-        const hasCached = hasUiCacheData_('pagos');
-        if (hasCached) {
-          pagosRowsCache = Array.isArray(getUiCacheData_('pagos')) ? getUiCacheData_('pagos') : [];
-          renderPagos(pagosRowsCache);
-        } else {
-          renderTableState_(tb, 8, 'Cargando pagos...', 'loading');
-        }
-        if (hasCached && !force && isUiCacheFresh_('pagos')) return;
-
-        pagosLoadInFlight = true;
-        rpc.withSuccessHandler(resp => {
-          pagosLoadInFlight = false;
-          const rows = Array.isArray(resp?.rows) ? resp.rows : [];
-          pagosRowsCache = rows;
-          setUiCacheData_('pagos', rows);
-          renderPagos(rows);
-        }).withFailureHandler(err => {
-          pagosLoadInFlight = false;
-          console.error('Error cargando pagos:', err);
-          if (hasCached) return;
-          renderTableState_(tb, 8, getRunErrorMsg(err, 'No se pudo cargar la lista de pagos.'), 'error');
-        }).getPayments(usuarioSesion?.email || '', '');
-      }
-
-      function resetPagoAgrupadoForm_() {
-        const formIds = ['payOperationNumber', 'payDate', 'payTotalAmount', 'payNotes', 'payCobroSearch'];
-        formIds.forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.value = '';
-        });
-        const fileInput = document.getElementById('payConstanciaFile');
-        if (fileInput) fileInput.value = '';
-        pagosEligibleRowsCache = [];
-        clearUiCache_('pagosElegibles');
-        const body = document.getElementById('payCobrosBody');
-        if (body) {
-          renderTableState_(body, 9, 'Cargando boletas elegibles...', 'loading');
-        }
-        updatePagoAgrupadoSummary_();
-      }
-
-      function abrirNuevoPagoAgrupado(options) {
-        const cfg = options && typeof options === 'object' ? options : {};
-        resetPagoAgrupadoForm_();
-        const dateInput = document.getElementById('payDate');
-        if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
-        if (cfg.searchQuery) {
-          const searchInput = document.getElementById('payCobroSearch');
-          if (searchInput) searchInput.value = String(cfg.searchQuery || '');
-        }
-        if (cfg.totalAmount > 0) {
-          const totalInput = document.getElementById('payTotalAmount');
-          if (totalInput) totalInput.value = Number(cfg.totalAmount || 0).toFixed(2);
-        }
-        if (cfg.notes) {
-          const notesInput = document.getElementById('payNotes');
-          if (notesInput) notesInput.value = String(cfg.notes || '');
-        }
-        pagoAgrupadoDraftContext = cfg && cfg.cobroId ? Object.assign({}, cfg) : null;
-        normalizeModalBackdrops();
-        document.body.classList.remove('modal-open');
-        document.body.style.removeProperty('overflow');
-        document.body.style.removeProperty('padding-right');
-        requestAnimationFrame(() => {
-          modalPagoAgrupadoEl.show();
-          setTimeout(() => {
-            cargarCobrosElegiblesPago(true);
-          }, 60);
-        });
-      }
-
-      function getCobrosElegiblesPagoSearch_() {
-        const input = document.getElementById('payCobroSearch');
-        return normalizeSearchTextUi_(input ? input.value : '');
-      }
-
-      function filterCobrosElegiblesPagoRows_(rows) {
-        const list = Array.isArray(rows) ? rows : [];
-        const query = getCobrosElegiblesPagoSearch_();
-        if (!query) return list;
-        return list.filter(row => normalizeSearchTextUi_([
-          row.id,
-          row.proveedor,
-          row.proveedorCodigo,
-          row.ruta,
-          row.unidad,
-          row.estado,
-          row.etapa,
-          row.countryCode,
-          row.countryName
-        ].join(' ')).includes(query));
-      }
-
-      function updatePagoAgrupadoSummary_() {
-        const selected = (pagosEligibleRowsCache || []).filter(row => row && row._selected);
-        const totalAssigned = selected.reduce((sum, row) => sum + Number(row._paymentAmount || 0), 0);
-        const summary = document.getElementById('paySelectedSummary');
-        const amount = document.getElementById('payAmountSummary');
-        if (summary) summary.textContent = `${fmtNum(selected.length)} boletas seleccionadas`;
-        if (amount) amount.textContent = `Asignado: ${fmtMoney(totalAssigned)}`;
-      }
-
-      function applyPagoAgrupadoDraftContext_() {
-        const ctx = pagoAgrupadoDraftContext;
-        if (!ctx || !ctx.cobroId || !Array.isArray(pagosEligibleRowsCache) || !pagosEligibleRowsCache.length) return;
-        let selectedCount = 0;
-        pagosEligibleRowsCache.forEach((row) => {
-          const isTarget = String(row?.id || '').trim() === String(ctx.cobroId || '').trim();
-          row._selected = isTarget;
-          if (isTarget) {
-            const suggested = Number(ctx.suggestedAmount || row.saldoPendiente || row.totalCobro || 0);
-            row._paymentAmount = suggested > 0 ? suggested : 0;
-            selectedCount += 1;
-          }
-        });
-        if (selectedCount > 0 && ctx.totalAmount > 0) {
-          const totalInput = document.getElementById('payTotalAmount');
-          if (totalInput) totalInput.value = Number(ctx.totalAmount || 0).toFixed(2);
-        }
-        pagoAgrupadoDraftContext = null;
-      }
-
-      function renderCobrosElegiblesPago(rows) {
-        const tb = document.getElementById('payCobrosBody');
-        if (!tb) return;
-        const list = filterCobrosElegiblesPagoRows_(rows);
-        if (!list.length) {
-          const query = getCobrosElegiblesPagoSearch_();
-          renderTableState_(tb, 9, query ? 'No se encontraron boletas para esa búsqueda.' : 'No hay boletas elegibles para pago agrupado.', 'muted');
-          updatePagoAgrupadoSummary_();
-          return;
-        }
-        tb.innerHTML = list.map((row) => {
-          const actualIndex = pagosEligibleRowsCache.indexOf(row);
-          return `
-            <tr>
-              <td class="text-center">
-                <input class="form-check-input" type="checkbox" ${row._selected ? 'checked' : ''} onchange="togglePagoCobroSelection_(${actualIndex}, this.checked)">
-              </td>
-              <td class="fw-semibold">${escapeHtmlUi(row.id || '-')}</td>
-              <td>
-                <div>${escapeHtmlUi(row.proveedor || '-')}</div>
-                <div class="small text-muted">${escapeHtmlUi(row.proveedorCodigo || '-')}</div>
-              </td>
-              <td>
-                <div>${escapeHtmlUi(row.ruta || '-')}</div>
-                <div class="small text-muted">${escapeHtmlUi(row.unidad || '-')}</div>
-              </td>
-              <td>${escapeHtmlUi(row.etapa || '-')}</td>
-              <td class="text-end text-money">${fmtMoney(row.totalCobro || 0)}</td>
-              <td class="text-end text-money">${fmtMoney(row.allocatedAmount || 0)}</td>
-              <td class="text-end text-money">${fmtMoney(row.saldoPendiente || 0)}</td>
-              <td class="text-end" style="min-width: 140px;">
-                <input type="number" class="form-control form-control-sm text-end" min="0.01" step="0.01"
-                  value="${Number(row._paymentAmount || 0) > 0 ? Number(row._paymentAmount || 0).toFixed(2) : ''}"
-                  ${row._selected ? '' : 'disabled'}
-                  onchange="updatePagoCobroAmount_(${actualIndex}, this.value)"
-                  oninput="updatePagoCobroAmount_(${actualIndex}, this.value)">
-              </td>
-            </tr>`;
-        }).join('');
-        updatePagoAgrupadoSummary_();
-      }
-
-      function cargarCobrosElegiblesPago(force) {
-        const tb = document.getElementById('payCobrosBody');
-        if (!tb || pagosEligibleLoadInFlight) return;
-        const cached = getUiCacheData_('pagosElegibles');
-        const hasCached = hasUiCacheData_('pagosElegibles');
-        if (hasCached) {
-          pagosEligibleRowsCache = (Array.isArray(cached) ? cached : []).map(row => Object.assign({}, row));
-          renderCobrosElegiblesPago(pagosEligibleRowsCache);
-        } else {
-          renderTableState_(tb, 9, 'Cargando boletas elegibles...', 'loading');
-        }
-        if (hasCached && !force && isUiCacheFresh_('pagosElegibles')) return;
-
-        pagosEligibleLoadInFlight = true;
-        rpc.withSuccessHandler(resp => {
-          pagosEligibleLoadInFlight = false;
-          const rows = (Array.isArray(resp?.rows) ? resp.rows : []).map(row => Object.assign({}, row, {
-            _selected: false,
-            _paymentAmount: Number(row.saldoPendiente || 0) > 0 ? Number(row.saldoPendiente || 0) : 0
-          }));
-          pagosEligibleRowsCache = rows;
-          applyPagoAgrupadoDraftContext_();
-          setUiCacheData_('pagosElegibles', rows.map(row => Object.assign({}, row)));
-          renderCobrosElegiblesPago(rows);
-        }).withFailureHandler(err => {
-          pagosEligibleLoadInFlight = false;
-          console.error('Error cargando boletas elegibles:', err);
-          if (hasCached) return;
-          renderTableState_(tb, 9, getRunErrorMsg(err, 'No se pudieron cargar las boletas elegibles.'), 'error');
-        }).getEligiblePaymentCobros(usuarioSesion?.email || '', '');
-      }
-
-      function filtrarCobrosElegiblesPago() {
-        renderCobrosElegiblesPago(pagosEligibleRowsCache);
-      }
-
-      function abrirPagosDesdeFlow() {
-        const ctx = getCurrentFlowContext_();
-        modalFlowEl.hide();
-        abrirPagos();
-        const searchInput = document.getElementById('pTexto');
-        const query = ctx.debitoRef || ctx.id || '';
-        if (searchInput) searchInput.value = query;
-        setTimeout(() => {
-          renderPagos(pagosRowsCache);
-          window.scrollTo(0, 0);
-        }, 140);
-      }
-
-      function crearPagoAgrupadoDesdeFlow() {
-        const ctx = getCurrentFlowContext_();
-        if (!ctx.id) {
-          Swal.fire('Error', 'No se pudo identificar la boleta actual.', 'error');
-          return;
-        }
-        modalFlowEl.hide();
-        abrirPagos();
-        setTimeout(() => {
-          abrirNuevoPagoAgrupado({
-            cobroId: ctx.id,
-            searchQuery: ctx.id,
-            totalAmount: ctx.totalCobro > 0 ? ctx.totalCobro : ctx.montoPago,
-            suggestedAmount: ctx.totalCobro > 0 ? ctx.totalCobro : ctx.montoPago,
-            notes: `Pago agrupado iniciado desde boleta ${ctx.id}${ctx.proveedor ? ' · ' + ctx.proveedor : ''}`
-          });
-        }, 180);
-      }
-
-      function togglePagoCobroSelection_(index, checked) {
-        const row = pagosEligibleRowsCache[index];
-        if (!row) return;
-        row._selected = !!checked;
-        if (row._selected && !(Number(row._paymentAmount || 0) > 0)) {
-          row._paymentAmount = Number(row.saldoPendiente || 0) > 0 ? Number(row.saldoPendiente || 0) : 0;
-        }
-        renderCobrosElegiblesPago(pagosEligibleRowsCache);
-      }
-
-      function updatePagoCobroAmount_(index, value) {
-        const row = pagosEligibleRowsCache[index];
-        if (!row) return;
-        const parsed = parseLooseNumberUi_(value);
-        row._paymentAmount = parsed > 0 ? parsed : 0;
-        updatePagoAgrupadoSummary_();
-      }
-
-      function readFileAsDataUrlUi_(file) {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result || ''));
-          reader.onerror = () => reject(new Error('No se pudo leer el archivo seleccionado.'));
-          reader.readAsDataURL(file);
-        });
-      }
-
-      async function guardarPagoAgrupado() {
-        const operationNumber = String(document.getElementById('payOperationNumber')?.value || '').trim();
-        const paymentDate = String(document.getElementById('payDate')?.value || '').trim();
-        const totalAmount = parseLooseNumberUi_(document.getElementById('payTotalAmount')?.value || '');
-        const notes = String(document.getElementById('payNotes')?.value || '').trim();
-        const fileInput = document.getElementById('payConstanciaFile');
-        const file = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
-        const selectedItems = (pagosEligibleRowsCache || [])
-          .filter(row => row && row._selected)
-          .map(row => ({
-            cobroId: String(row.id || '').trim(),
-            amount: parseLooseNumberUi_(row._paymentAmount)
-          }));
-        const invalidItem = selectedItems.find(item => !(item.amount > 0));
-        const sumAssigned = selectedItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-
-        if (!operationNumber) return Swal.fire('Error', 'Debe ingresar el número de operación.', 'error');
-        if (!paymentDate) return Swal.fire('Error', 'Debe ingresar la fecha de pago.', 'error');
-        if (!(totalAmount > 0)) return Swal.fire('Error', 'Debe ingresar un monto total válido.', 'error');
-        if (!selectedItems.length) return Swal.fire('Error', 'Seleccione al menos una boleta.', 'error');
-        if (invalidItem) return Swal.fire('Error', 'Cada boleta seleccionada debe tener un monto mayor a 0.', 'error');
-        if (Math.abs(sumAssigned - totalAmount) > 0.009) {
-          return Swal.fire('Error', 'La suma asignada a las boletas debe coincidir con el monto total del pago.', 'error');
-        }
-        if (!file) return Swal.fire('Error', 'Adjunte la constancia de pago en PDF.', 'error');
-        if (String(file.type || '').toLowerCase() !== 'application/pdf' && !String(file.name || '').toLowerCase().endsWith('.pdf')) {
-          return Swal.fire('Error', 'La constancia debe estar en formato PDF.', 'error');
-        }
-        if (Number(file.size || 0) > 10 * 1024 * 1024) {
-          return Swal.fire('Error', 'La constancia supera 10 MB.', 'error');
-        }
-
-        try {
-          mostrarLoading(true);
-          const dataUrl = await readFileAsDataUrlUi_(file);
-          rpc.withSuccessHandler(resp => {
-            mostrarLoading(false);
-            if (!resp || !resp.success) {
-              Swal.fire('Error', resp?.message || 'No se pudo registrar el pago agrupado.', 'error');
-              return;
-            }
-            modalPagoAgrupadoEl.hide();
-            clearUiCache_('pagos');
-            clearUiCache_('pagosElegibles');
-            clearUiCache_('gestion');
-            cargarPagos(true);
-            if (currentWorkspaceModule === 'gestion') cargarGestion(false, true);
-            Swal.fire('Guardado', `Pago ${resp.paymentId || ''} registrado y asociado a ${fmtNum(resp.cobroCount || 0)} boletas.`, 'success');
-          }).withFailureHandler(err => {
-            mostrarLoading(false);
-            Swal.fire('Error', getRunErrorMsg(err, 'No se pudo registrar el pago agrupado.'), 'error');
-          }).createGroupedPayment({
-            operationNumber,
-            paymentDate,
-            totalAmount,
-            notes,
-            items: selectedItems,
-            fileName: String(file.name || 'constancia_pago.pdf'),
-            mimeType: 'application/pdf',
-            dataUrl
-          }, usuarioSesion?.email || '');
-        } catch (err) {
-          mostrarLoading(false);
-          Swal.fire('Error', getRunErrorMsg(err, 'No se pudo leer la constancia de pago.'), 'error');
-        }
-      }
-
-      function verDetallePago(paymentId) {
-        const id = String(paymentId || '').trim();
-        if (!id) {
-          Swal.fire('Error', 'No se pudo identificar el pago.', 'error');
-          return;
-        }
-        const body = document.getElementById('pagoDetalleBody');
-        const title = document.getElementById('pagoDetalleTitle');
-        if (title) title.textContent = `Detalle de pago ${id}`;
-        if (body) body.innerHTML = '<div class="text-center py-4 text-muted">Cargando detalle...</div>';
-        modalPagoDetalleEl.show();
-        rpc.withSuccessHandler(resp => {
-          const payment = resp?.payment || {};
-          const cobros = Array.isArray(resp?.cobros) ? resp.cobros : [];
-          const countryLabel = payment.countryCode ? getCountryDisplayLabelUi_(payment.countryCode) : (payment.countryName || '-');
-          body.innerHTML = `
-            <div class="row g-3 mb-3">
-              <div class="col-md-4"><div class="small text-muted">Número de operación</div><div class="fw-semibold">${escapeHtmlUi(payment.operationNumber || '-')}</div></div>
-              <div class="col-md-3"><div class="small text-muted">Fecha pago</div><div class="fw-semibold">${escapeHtmlUi(payment.paymentDate || '-')}</div></div>
-              <div class="col-md-3"><div class="small text-muted">Monto total</div><div class="fw-semibold">${fmtMoney(payment.totalAmount || 0)}</div></div>
-              <div class="col-md-2"><div class="small text-muted">Estado</div><div class="fw-semibold">${escapeHtmlUi(payment.status || '-')}</div></div>
-              <div class="col-md-6"><div class="small text-muted">País</div><div class="fw-semibold">${escapeHtmlUi(countryLabel || '-')}</div></div>
-              <div class="col-md-6"><div class="small text-muted">Registrado por</div><div class="fw-semibold">${escapeHtmlUi(payment.createdBy || '-')}</div></div>
-              <div class="col-12"><div class="small text-muted">Notas</div><div class="fw-semibold">${escapeHtmlUi(payment.notes || '-')}</div></div>
-              <div class="col-12">
-                <button type="button" class="btn btn-outline-primary btn-sm" onclick="openPdfInApp('${escapeHtmlUi(payment.constanciaPagoUrl || '')}','Constancia ${escapeHtmlUi(payment.operationNumber || payment.id || 'pago')}')">
-                  <i class="bi bi-file-earmark-pdf me-1"></i> Ver constancia
-                </button>
-              </div>
-            </div>
-            <div class="table-responsive border rounded">
-              <table class="table table-sm align-middle mb-0">
-                <thead class="table-light">
-                  <tr>
-                    <th>ID boleta</th>
-                    <th>Proveedor</th>
-                    <th>Ruta</th>
-                    <th>Etapa</th>
-                    <th class="text-end">Total boleta</th>
-                    <th class="text-end">Monto aplicado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${cobros.length ? cobros.map(row => `
-                    <tr>
-                      <td class="fw-semibold">${escapeHtmlUi(row.cobroId || '-')}</td>
-                      <td>
-                        <div>${escapeHtmlUi(row.proveedor || '-')}</div>
-                        <div class="small text-muted">${escapeHtmlUi(row.proveedorCodigo || '-')}</div>
-                      </td>
-                      <td>
-                        <div>${escapeHtmlUi(row.ruta || '-')}</div>
-                        <div class="small text-muted">${escapeHtmlUi(row.unidad || '-')}</div>
-                      </td>
-                      <td>${escapeHtmlUi(row.etapa || '-')}</td>
-                      <td class="text-end text-money">${fmtMoney(row.totalCobro || 0)}</td>
-                      <td class="text-end text-money">${fmtMoney(row.allocatedAmount || 0)}</td>
-                    </tr>`).join('') : '<tr><td colspan="6" class="text-center text-muted py-3">Sin boletas asociadas.</td></tr>'}
-                </tbody>
-              </table>
-            </div>`;
-        }).withFailureHandler(err => {
-          body.innerHTML = `<div class="text-center text-danger py-4">${escapeHtmlUi(getRunErrorMsg(err, 'No se pudo cargar el detalle del pago.'))}</div>`;
-        }).getPaymentDetail(id, usuarioSesion?.email || '');
-      }
-
-      const pTextoEl = document.getElementById('pTexto');
-      if (pTextoEl) {
-        pTextoEl.addEventListener('input', () => {
-          if (hasUiCacheData_('pagos')) renderPagos(getUiCacheData_('pagos'));
-        });
-        pTextoEl.addEventListener('keydown', e => {
-          if (e.key !== 'Enter') return;
-          e.preventDefault();
-          cargarPagos(true);
-        });
-      }
-
-      const payCobroSearchEl = document.getElementById('payCobroSearch');
-      if (payCobroSearchEl) {
-        payCobroSearchEl.addEventListener('input', () => filtrarCobrosElegiblesPago());
-      }
+      // Modulo de pagos cargado desde /legacy-assets/js/modules/pagos.js
 
       const gTextoEl = document.getElementById('gTexto');
       if (gTextoEl) {
@@ -14681,15 +14030,6 @@
         return d.toLocaleString();
       }
 
-      function getRunErrorMsg(err, fallback) {
-        if (!err) return fallback || 'Error inesperado';
-        if (typeof err === 'string') return err;
-        if (err.message) return String(err.message);
-        if (err.details) return String(err.details);
-        if (err.description) return String(err.description);
-        return fallback || 'Error inesperado';
-      }
-
       function showCatalogDeleteAlert_(result, fallbackMessage) {
         const blocked = !!(result && result.associated);
         Swal.fire(
@@ -14697,19 +14037,6 @@
           result?.message || fallbackMessage || 'No se pudo completar la eliminación.',
           blocked ? 'warning' : 'error'
         );
-      }
-
-      function showUiToast(type, msg) {
-        const icon = type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'info';
-        Swal.fire({
-          toast: true,
-          position: 'top-end',
-          icon,
-          title: String(msg || 'Operación completada'),
-          showConfirmButton: false,
-          timer: 4200,
-          timerProgressBar: true
-        });
       }
 
       function extractDriveFileIdClient(url) {
@@ -14864,20 +14191,6 @@
           return;
         }
         openPdfInApp(url, 'PDF ' + (id || ''));
-      }
-
-      function normalizeModalBackdrops() {
-        const openModalCount = document.querySelectorAll('.modal.show').length;
-        const backdrops = Array.from(document.querySelectorAll('.modal-backdrop'));
-        while (backdrops.length > openModalCount) {
-          const extraBackdrop = backdrops.pop();
-          if (extraBackdrop) extraBackdrop.remove();
-        }
-        if (!openModalCount) {
-          document.body.classList.remove('modal-open');
-          document.body.style.removeProperty('overflow');
-          document.body.style.removeProperty('padding-right');
-        }
       }
 
       function cleanupPdfViewerUi() {
@@ -15714,14 +15027,6 @@
       // =========================
       // ✅ MÓDULO USUARIOS
       // =========================
-      function normalizeSearchTextUi_(value) {
-        return String(value == null ? '' : value)
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .trim();
-      }
-
       function getUsuariosSearchQuery_() {
         const input = document.getElementById('buscarUsuarios');
         return normalizeSearchTextUi_(input ? input.value : '');
@@ -16154,27 +15459,6 @@
           clearUiCache_('catalogosCobro');
           itemsMaestro = [];
         }).adminGetMaestroItems(usuarioSesion?.email || '');
-      }
-
-      function parseLooseNumberUi_(value) {
-        if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-        const raw = String(value == null ? '' : value).trim();
-        if (!raw) return 0;
-        const compact = raw.replace(/\s+/g, '');
-        const lastComma = compact.lastIndexOf(',');
-        const lastDot = compact.lastIndexOf('.');
-        let normalized = compact;
-        if (lastComma >= 0 && lastDot >= 0) {
-          normalized = lastComma > lastDot
-            ? compact.replace(/\./g, '').replace(',', '.')
-            : compact.replace(/,/g, '');
-        } else if (lastComma >= 0) {
-          normalized = compact.replace(/\./g, '').replace(',', '.');
-        } else {
-          normalized = compact.replace(/,/g, '');
-        }
-        const parsed = Number(normalized);
-        return Number.isFinite(parsed) ? parsed : 0;
       }
 
       function parseLooseBoolUi_(value, fallback = true) {
@@ -18427,69 +17711,6 @@
       // =========================
       // ✅ CORE: COBROS & HISTORIAL
       // =========================
-      function setText(id, value) {
-        const el = document.getElementById(id);
-        if (el) el.innerText = value;
-      }
-
-      function getUiCacheEntry_(key) {
-        if (!uiDataCache[key]) uiDataCache[key] = { data: null, at: 0 };
-        return uiDataCache[key];
-      }
-
-      function setUiCacheData_(key, data) {
-        const entry = getUiCacheEntry_(key);
-        entry.data = data;
-        entry.at = Date.now();
-        return data;
-      }
-
-      function getUiCacheData_(key) {
-        return getUiCacheEntry_(key).data;
-      }
-
-      function hasUiCacheData_(key) {
-        const data = getUiCacheData_(key);
-        return data !== null && data !== undefined;
-      }
-
-      function isUiCacheFresh_(key, maxAge) {
-        const age = Number(maxAge || UI_CACHE_STALE_MS);
-        const at = Number(getUiCacheEntry_(key).at || 0);
-        return !!at && (Date.now() - at) <= age;
-      }
-
-      function clearUiCache_(key) {
-        const entry = getUiCacheEntry_(key);
-        entry.data = null;
-        entry.at = 0;
-      }
-
-      function clearAllUiCaches_() {
-        Object.keys(uiDataCache).forEach(clearUiCache_);
-      }
-
-      function renderTableState_(tbody, colspan, text, tone) {
-        if (!tbody) return;
-        const palette = String(tone || 'muted').toLowerCase();
-        const icon = palette === 'error'
-          ? '<i class="bi bi-exclamation-octagon me-2"></i>'
-          : palette === 'loading'
-            ? '<div class="spinner-border spinner-border-sm text-primary me-2"></div>'
-            : '';
-        const colorClass = palette === 'error' ? 'text-danger' : 'text-muted';
-        tbody.innerHTML = `<tr><td colspan="${Number(colspan || 1)}" class="text-center ${colorClass} py-3">${icon}${escapeHtmlUi(text || 'Sin datos')}</td></tr>`;
-      }
-
-      function escapeHtmlUi(value) {
-        return String(value == null ? '' : value)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#39;');
-      }
-
       function buildUiPayload_(value) {
         try {
           return encodeURIComponent(JSON.stringify(value == null ? null : value));
@@ -18505,16 +17726,6 @@
         if (!parts.length) return '--';
         if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
         return (parts[0][0] + parts[1][0]).toUpperCase();
-      }
-
-      function fmtNum(value) {
-        const n = Number(value || 0);
-        return n.toLocaleString('es-PE');
-      }
-
-      function fmtMoney(value) {
-        const n = Number(value || 0);
-        return 'S/ ' + n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       }
 
       function fmtPct(value) {
@@ -19217,77 +18428,6 @@
         document.getElementById('totalGeneral').innerText = "S/ " + t.toFixed(2);
       }
 
-      function setLoadingCopy_(title, message) {
-        setText('loadingTitle', title || 'Procesando');
-        setText('loadingMessage', message || 'La aplicación sigue disponible mientras termina la operación.');
-      }
-
-      function setLoadingVisible_(visible) {
-        const box = document.getElementById('loading');
-        if (!box) return;
-        box.classList.toggle('is-active', !!visible);
-        document.body.classList.toggle('app-busy', !!visible);
-      }
-
-      function stopLoadingWatchdog_() {
-        if (!loadingUiHardTimer) return;
-        clearTimeout(loadingUiHardTimer);
-        loadingUiHardTimer = null;
-      }
-
-      function startLoadingWatchdog_() {
-        if (!LOADING_UI_MAX_MS || LOADING_UI_MAX_MS <= 0) return;
-        if (loadingUiHardTimer) clearTimeout(loadingUiHardTimer);
-        loadingUiHardTimer = setTimeout(() => {
-          if (loadingUiCount <= 0) return;
-          resetLoadingUi_();
-          try {
-            showUiToast('warning', 'La operacion esta tardando mas de lo esperado. Si no termina, recargue la pagina.');
-          } catch (e) { }
-        }, LOADING_UI_MAX_MS);
-      }
-
-      function resetLoadingUi_() {
-        loadingUiCount = 0;
-        if (loadingUiTimer) {
-          clearTimeout(loadingUiTimer);
-          loadingUiTimer = null;
-        }
-        stopLoadingWatchdog_();
-        setLoadingCopy_('Procesando', 'La aplicación sigue disponible mientras termina la operación.');
-        setLoadingVisible_(false);
-      }
-
-      function mostrarLoading(s, opts) {
-        const options = (opts && typeof opts === 'object') ? opts : {};
-        if (options.title || options.message) {
-          setLoadingCopy_(options.title, options.message);
-        }
-        if (s) {
-          loadingUiCount++;
-          startLoadingWatchdog_();
-          if (loadingUiTimer) return;
-          loadingUiTimer = setTimeout(() => {
-            loadingUiTimer = null;
-            if (loadingUiCount > 0) setLoadingVisible_(true);
-          }, LOADING_UI_DELAY_MS);
-          return;
-        }
-        if (options.force) {
-          resetLoadingUi_();
-          return;
-        }
-        loadingUiCount = Math.max(0, loadingUiCount - 1);
-        if (loadingUiCount > 0) return;
-        stopLoadingWatchdog_();
-        if (loadingUiTimer) {
-          clearTimeout(loadingUiTimer);
-          loadingUiTimer = null;
-        }
-        setLoadingVisible_(false);
-        setLoadingCopy_('Procesando', 'La aplicación sigue disponible mientras termina la operación.');
-      }
-
       function openScanner(targetId) {
         scanTargetId = targetId;
         if (!scanModalInstance) scanModalInstance = new bootstrap.Modal(document.getElementById('scanModal'), { backdrop: 'static', keyboard: false });
@@ -19436,6 +18576,7 @@
         if (box && !box.contains(e.target)) res.style.display = 'none';
       });
     </script>
+    <script src="/legacy-assets/js/modules/pagos.js"></script>
 </body>
 
 </html>

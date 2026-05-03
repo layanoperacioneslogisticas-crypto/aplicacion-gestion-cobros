@@ -3,9 +3,11 @@ import { getGasRuntime } from '../gas/runtime.js';
 import { executeLegacySpecial } from '../services/legacySpecial.js';
 import {
   createGroupedPaymentModule,
+  deleteGroupedPaymentModule,
   getPaymentDetailModule,
   listEligiblePaymentCobrosModule,
-  listPaymentsModule
+  listPaymentsModule,
+  updateGroupedPaymentModule
 } from '../services/paymentsModule.js';
 
 const SPECIAL_METHODS = new Set([
@@ -269,6 +271,22 @@ appApiRouter.post('/payments', jsonRoute((req) => {
     actorEmail: optionalString(req.body?.actorEmail),
     payment: req.body?.payment || {},
     req
+  });
+}));
+
+appApiRouter.patch('/payments/:id', jsonRoute((req) => {
+  return updateGroupedPaymentModule({
+    actorEmail: optionalString(req.body?.actorEmail),
+    paymentId: requiredString(req.params.id, 'ID de pago requerido.'),
+    payment: req.body?.payment || {},
+    req
+  });
+}));
+
+appApiRouter.delete('/payments/:id', jsonRoute((req) => {
+  return deleteGroupedPaymentModule({
+    actorEmail: optionalString(req.query.actorEmail || req.body?.actorEmail),
+    paymentId: requiredString(req.params.id, 'ID de pago requerido.')
   });
 }));
 

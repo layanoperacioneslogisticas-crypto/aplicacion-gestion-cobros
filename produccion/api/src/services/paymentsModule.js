@@ -12,6 +12,8 @@ const PAYMENT_STAGE = '10. Aplicación de pago';
 const PAYMENT_STATUS = 'Registrado';
 const PAYMENT_AREA = 'Creditos y Cobros';
 const PAYMENT_AUDIT_ACTION = 'Pago agrupado asociado';
+const PAYMENT_UPDATED_AUDIT_ACTION = 'Pago agrupado editado';
+const PAYMENT_DELETED_AUDIT_ACTION = 'Pago agrupado eliminado';
 
 function createError(status, message) {
   const error = new Error(message);
@@ -117,6 +119,20 @@ function parsePaymentAuditDetail(raw) {
   return null;
 }
 
+function buildPaymentAuditDetail(paymentIdValue, paymentData, allocatedAmount, cobroCount) {
+  return JSON.stringify({
+    kind: 'grouped_payment',
+    paymentId: String(paymentIdValue || '').trim(),
+    operationNumber: String(paymentData?.operationNumber || '').trim(),
+    paymentDate: String(paymentData?.paymentDate || '').trim(),
+    totalAmount: round2(paymentData?.totalAmount || 0),
+    notes: String(paymentData?.notes || '').trim(),
+    constanciaPagoUrl: String(paymentData?.constanciaPagoUrl || '').trim(),
+    allocatedAmount: round2(allocatedAmount || 0),
+    cobroCount: Number(cobroCount || 0)
+  });
+}
+
 async function getAllocationsByCobroIds(cobroIds) {
   const ids = Array.isArray(cobroIds) ? cobroIds.map((id) => String(id || '').trim()).filter(Boolean) : [];
   if (!ids.length) return new Map();
@@ -156,7 +172,7 @@ async function getCobrosByIds(cobroIds, profile) {
 async function listPaymentAuditRows(profile) {
   const query = supabaseAdmin
     .from('ct_audit_log')
-    .select('cobro_id,detalle,usuario,created_at')
+    .select('id,cobro_id,detalle,usuario,created_at')
     .eq('accion', PAYMENT_AUDIT_ACTION)
     .order('created_at', { ascending: false })
     .limit(1500);
@@ -181,6 +197,191 @@ async function listPaymentAuditRows(profile) {
       ct_cobros: cobroMap.get(String(row?.cobro_id || '').trim()) || null
     }))
     .filter((row) => sameCountry(profile, row?.ct_cobros || {}));
+}
+
+async function getPaymentAuditBundle(profile, paymentIdValue) {
+  const wantedId = String(paymentIdValue || '').trim();
+  if (!wantedId) throw createError(400, 'Pago no válido.');
+
+  const auditRows = await listPaymentAuditRows(profile);
+  const matching = auditRows.filter((row) => String(parsePaymentAuditDetail(row?.detalle)?.paymentId || '').trim() === wantedId);
+  if (!matching.length) throw createError(404, 'Pago no encontrado.');
+
+  const firstDetail = parsePaymentAuditDetail(matching[0]?.detalle);
+  if (!firstDetail?.paymentId) throw createError(404, 'Pago no encontrado.');
+
+  return {
+    paymentId: wantedId,
+    matching,
+    firstDetail
+  };
+}
+
+async function clearGroupedPaymentCobros({ cobros, paymentDetail, actorEmail, auditAction }) {
+  const rows = Array.isArray(cobros) ? cobros : [];
+  if (!rows.length) return;
+
+  const nowIso = new Date().toISOString();
+  for (const cobro of rows) {
+    const currentStage = String(cobro?.etapa || '').trim();
+    const updatePayload = {
+      debito_ref: null,
+      monto_pago: 0,
+      constancia_pago_url: null,
+      ultima_actualizacion: nowIso
+    };
+    if (currentStage === PAYMENT_STAGE) {
+      updatePayload.etapa = '9. Gestionar pago';
+      updatePayload.area_responsable_actual = PAYMENT_AREA;
+      updatePayload.fecha_ingreso_etapa_actual = nowIso;
+    }
+
+    const cobroId = String(cobro?.id || '').trim();
+    const { error: updErr } = await supabaseAdmin.from('ct_cobros').update(updatePayload).eq('id', cobroId);
+    if (updErr) throw createError(500, updErr.message);
+
+    if (auditAction && cobroId) {
+      const { error: auditErr } = await supabaseAdmin.from('ct_audit_log').insert({
+        cobro_id: cobroId,
+        usuario: String(actorEmail || 'sistema'),
+        etapa: updatePayload.etapa || currentStage,
+        accion: auditAction,
+        resultado: 'OK',
+        detalle: buildPaymentAuditDetail(paymentDetail?.paymentId, paymentDetail, 0, rows.length)
+      });
+      if (auditErr) throw createError(500, auditErr.message);
+    }
+  }
+}
+
+async function applyGroupedPaymentToCobros({ profile, paymentIdValue, paymentData, normalizedItems, cobros, req }) {
+  const countryCode = String((cobros[0]?.country_code || profile.countryCode || 'PE')).trim().toUpperCase();
+  const fileName = String(paymentData?.fileName || '').trim();
+  const mimeType = String(paymentData?.mimeType || '').trim();
+  const dataUrl = String(paymentData?.dataUrl || '').trim();
+  let constanciaPagoUrl = String(paymentData?.constanciaPagoUrl || '').trim();
+
+  if (dataUrl) {
+    const parsed = parseDataUrl(dataUrl, mimeType);
+    if (!parsed?.buffer?.length) throw createError(400, 'Debe adjuntar la constancia de pago en PDF.');
+    if (String(parsed.mimeType || mimeType || '').toLowerCase() !== 'application/pdf') {
+      throw createError(400, 'La constancia debe estar en formato PDF.');
+    }
+    if (parsed.buffer.length > 10 * 1024 * 1024) {
+      throw createError(400, 'La constancia supera 10 MB.');
+    }
+
+    const folderPrefix = `${LEGACY_ROOT_PREFIX}/Pagos/${countryCode}/${slug(paymentIdValue)}`;
+    const safeFileName = sanitizeUploadName(fileName, `constancia_${slug(paymentData?.operationNumber) || 'pago'}.pdf`);
+    const storagePath = `${folderPrefix}/${safeFileName.toLowerCase().endsWith('.pdf') ? safeFileName : `${safeFileName}.pdf`}`;
+    await uploadStorageObject(storagePath, parsed.buffer, 'application/pdf');
+    constanciaPagoUrl = buildAppFileUrl(storagePath, req);
+  }
+
+  if (!constanciaPagoUrl) {
+    throw createError(400, 'Debe adjuntar la constancia de pago en PDF.');
+  }
+
+  const nowIso = new Date().toISOString();
+  const cobroMap = new Map(cobros.map((row) => [String(row.id || '').trim(), row]));
+  for (const item of normalizedItems) {
+    const cobro = cobroMap.get(item.cobroId);
+    const updatePayload = {
+      debito_ref: paymentData.operationNumber,
+      monto_pago: item.amount,
+      constancia_pago_url: constanciaPagoUrl,
+      ultima_actualizacion: nowIso
+    };
+    if (String(cobro?.etapa || '').trim() === '9. Gestionar pago') {
+      updatePayload.etapa = PAYMENT_STAGE;
+      updatePayload.area_responsable_actual = PAYMENT_AREA;
+      updatePayload.fecha_ingreso_etapa_actual = nowIso;
+      if (String(cobro?.estado || '').trim() !== 'Observado') {
+        updatePayload.estado = 'En proceso';
+      }
+    }
+    const { error: updErr } = await supabaseAdmin.from('ct_cobros').update(updatePayload).eq('id', item.cobroId);
+    if (updErr) throw createError(500, updErr.message);
+
+    const { error: auditErr } = await supabaseAdmin.from('ct_audit_log').insert({
+      cobro_id: item.cobroId,
+      usuario: String(profile.email || 'sistema'),
+      etapa: updatePayload.etapa || String(cobro?.etapa || ''),
+      accion: PAYMENT_AUDIT_ACTION,
+      resultado: 'OK',
+      detalle: buildPaymentAuditDetail(paymentIdValue, {
+        ...paymentData,
+        constanciaPagoUrl
+      }, item.amount, normalizedItems.length)
+    });
+    if (auditErr) throw createError(500, auditErr.message);
+  }
+
+  return constanciaPagoUrl;
+}
+
+function normalizePaymentInput(payment) {
+  return {
+    operationNumber: String(payment?.operationNumber || '').trim(),
+    paymentDate: String(payment?.paymentDate || '').trim(),
+    notes: String(payment?.notes || '').trim(),
+    totalAmount: round2(parseAmount(payment?.totalAmount)),
+    items: Array.isArray(payment?.items) ? payment.items : [],
+    fileName: String(payment?.fileName || '').trim(),
+    mimeType: String(payment?.mimeType || '').trim(),
+    dataUrl: String(payment?.dataUrl || '').trim(),
+    constanciaPagoUrl: String(payment?.constanciaPagoUrl || '').trim()
+  };
+}
+
+async function validatePaymentItems(profile, normalizedPayment, existingAllocationsByCobroId = new Map()) {
+  const normalizedItems = normalizedPayment.items
+    .map((item) => ({
+      cobroId: String(item?.cobroId || '').trim(),
+      amount: round2(parseAmount(item?.amount))
+    }))
+    .filter((item) => item.cobroId);
+
+  if (!normalizedPayment.operationNumber) throw createError(400, 'Debe ingresar el número de operación.');
+  if (!(normalizedPayment.totalAmount > 0)) throw createError(400, 'Debe ingresar un monto total válido.');
+  if (!normalizedPayment.paymentDate) throw createError(400, 'Debe ingresar la fecha de pago.');
+  if (!normalizedItems.length) throw createError(400, 'Debe seleccionar al menos una boleta.');
+  if (normalizedItems.some((item) => !(item.amount > 0))) {
+    throw createError(400, 'Cada boleta debe tener un monto mayor a 0.');
+  }
+
+  const uniqueCobroIds = Array.from(new Set(normalizedItems.map((item) => item.cobroId)));
+  if (uniqueCobroIds.length !== normalizedItems.length) {
+    throw createError(400, 'No puede repetir la misma boleta dentro del mismo pago.');
+  }
+
+  const cobros = await getCobrosByIds(uniqueCobroIds, profile);
+  const allocations = await getAllocationsByCobroIds(uniqueCobroIds);
+  const cobroMap = new Map(cobros.map((row) => [String(row.id || '').trim(), row]));
+
+  let allocatedTotal = 0;
+  normalizedItems.forEach((item) => {
+    const cobro = cobroMap.get(item.cobroId);
+    if (!cobro) throw createError(404, `Boleta no encontrada: ${item.cobroId}`);
+
+    const totalCobro = round2(cobro.total_cobro || 0);
+    const existingAllocation = round2(existingAllocationsByCobroId.get(item.cobroId) || 0);
+    const alreadyAllocated = round2(Math.max(0, (allocations.get(item.cobroId) || 0) - existingAllocation));
+    const saldoPendiente = round2(Math.max(0, totalCobro - alreadyAllocated));
+    if (item.amount - saldoPendiente > 0.009) {
+      throw createError(400, `La boleta ${item.cobroId} excede su saldo pendiente.`);
+    }
+    allocatedTotal = round2(allocatedTotal + item.amount);
+  });
+
+  if (Math.abs(allocatedTotal - normalizedPayment.totalAmount) > 0.009) {
+    throw createError(400, 'La suma asignada a las boletas debe coincidir con el monto total del pago.');
+  }
+
+  return {
+    normalizedItems,
+    cobros
+  };
 }
 
 export async function listPaymentsModule({ actorEmail, q = '' }) {
@@ -339,14 +540,7 @@ export async function getPaymentDetailModule({ actorEmail, paymentId }) {
     throw createError(403, 'No tiene permisos para gestionar pagos.');
   }
 
-  const wantedId = String(paymentId || '').trim();
-  if (!wantedId) throw createError(400, 'Pago no válido.');
-
-  const auditRows = await listPaymentAuditRows(profile);
-  const matching = auditRows.filter((row) => String(parsePaymentAuditDetail(row?.detalle)?.paymentId || '').trim() === wantedId);
-  if (!matching.length) throw createError(404, 'Pago no encontrado.');
-
-  const firstDetail = parsePaymentAuditDetail(matching[0]?.detalle);
+  const { paymentId: wantedId, matching, firstDetail } = await getPaymentAuditBundle(profile, paymentId);
   const cobroIds = matching.map((row) => String(row?.cobro_id || '').trim()).filter(Boolean);
   const cobros = await getCobrosByIds(cobroIds, profile);
   const cobroMap = new Map(cobros.map((row) => [String(row.id || '').trim(), row]));
@@ -389,122 +583,130 @@ export async function createGroupedPaymentModule({ actorEmail, payment, req }) {
     throw createError(403, 'No tiene permisos para registrar pagos.');
   }
 
-  const operationNumber = String(payment?.operationNumber || '').trim();
-  const paymentDate = String(payment?.paymentDate || '').trim();
-  const notes = String(payment?.notes || '').trim();
-  const totalAmount = round2(parseAmount(payment?.totalAmount));
-  const items = Array.isArray(payment?.items) ? payment.items : [];
-  const fileName = String(payment?.fileName || '').trim();
-  const mimeType = String(payment?.mimeType || '').trim();
-  const dataUrl = String(payment?.dataUrl || '').trim();
-
-  if (!operationNumber) throw createError(400, 'Debe ingresar el número de operación.');
-  if (!(totalAmount > 0)) throw createError(400, 'Debe ingresar un monto total válido.');
-  if (!paymentDate) throw createError(400, 'Debe ingresar la fecha de pago.');
-  if (!items.length) throw createError(400, 'Debe seleccionar al menos una boleta.');
-
-  const parsed = parseDataUrl(dataUrl, mimeType);
-  if (!parsed?.buffer?.length) throw createError(400, 'Debe adjuntar la constancia de pago en PDF.');
-  if (String(parsed.mimeType || mimeType || '').toLowerCase() !== 'application/pdf') {
-    throw createError(400, 'La constancia debe estar en formato PDF.');
-  }
-  if (parsed.buffer.length > 10 * 1024 * 1024) {
-    throw createError(400, 'La constancia supera 10 MB.');
+  const normalizedPayment = normalizePaymentInput(payment);
+  const { normalizedItems, cobros } = await validatePaymentItems(profile, normalizedPayment);
+  if (!normalizedPayment.dataUrl) {
+    throw createError(400, 'Debe adjuntar la constancia de pago en PDF.');
   }
 
-  const normalizedItems = items.map((item) => ({
-    cobroId: String(item?.cobroId || '').trim(),
-    amount: round2(parseAmount(item?.amount))
-  })).filter((item) => item.cobroId);
-  if (!normalizedItems.length) throw createError(400, 'No hay boletas válidas seleccionadas.');
-  if (normalizedItems.some((item) => !(item.amount > 0))) {
-    throw createError(400, 'Cada boleta debe tener un monto mayor a 0.');
-  }
-
-  const uniqueCobroIds = Array.from(new Set(normalizedItems.map((item) => item.cobroId)));
-  if (uniqueCobroIds.length !== normalizedItems.length) {
-    throw createError(400, 'No puede repetir la misma boleta dentro del mismo pago.');
-  }
-
-  const cobros = await getCobrosByIds(uniqueCobroIds, profile);
-  const allocations = await getAllocationsByCobroIds(uniqueCobroIds);
-  const cobroMap = new Map(cobros.map((row) => [String(row.id || '').trim(), row]));
-
-  let allocatedTotal = 0;
-  normalizedItems.forEach((item) => {
-    const cobro = cobroMap.get(item.cobroId);
-    if (!cobro) throw createError(404, `Boleta no encontrada: ${item.cobroId}`);
-    const totalCobro = round2(cobro.total_cobro || 0);
-    const alreadyAllocated = round2(allocations.get(item.cobroId) || 0);
-    const saldoPendiente = round2(Math.max(0, totalCobro - alreadyAllocated));
-    if (item.amount - saldoPendiente > 0.009) {
-      throw createError(400, `La boleta ${item.cobroId} excede su saldo pendiente.`);
-    }
-    allocatedTotal = round2(allocatedTotal + item.amount);
+  const newPaymentId = paymentId(normalizedPayment.operationNumber);
+  const constanciaPagoUrl = await applyGroupedPaymentToCobros({
+    profile,
+    paymentIdValue: newPaymentId,
+    paymentData: normalizedPayment,
+    normalizedItems,
+    cobros,
+    req
   });
-
-  if (Math.abs(allocatedTotal - totalAmount) > 0.009) {
-    throw createError(400, 'La suma asignada a las boletas debe coincidir con el monto total del pago.');
-  }
-
-  const countryCode = String((cobros[0]?.country_code || profile.countryCode || 'PE')).trim().toUpperCase();
-  const newPaymentId = paymentId(operationNumber);
-  const folderPrefix = `${LEGACY_ROOT_PREFIX}/Pagos/${countryCode}/${slug(newPaymentId)}`;
-  const safeFileName = sanitizeUploadName(fileName, `constancia_${slug(operationNumber) || 'pago'}.pdf`);
-  const storagePath = `${folderPrefix}/${safeFileName.toLowerCase().endsWith('.pdf') ? safeFileName : `${safeFileName}.pdf`}`;
-
-  await uploadStorageObject(storagePath, parsed.buffer, 'application/pdf');
-  const constanciaPagoUrl = buildAppFileUrl(storagePath, req);
-
-  const nowIso = new Date().toISOString();
-  for (const item of normalizedItems) {
-    const cobro = cobroMap.get(item.cobroId);
-    const updatePayload = {
-      debito_ref: operationNumber,
-      monto_pago: item.amount,
-      constancia_pago_url: constanciaPagoUrl,
-      ultima_actualizacion: nowIso
-    };
-    if (String(cobro?.etapa || '').trim() === '9. Gestionar pago') {
-      updatePayload.etapa = PAYMENT_STAGE;
-      updatePayload.area_responsable_actual = PAYMENT_AREA;
-      updatePayload.fecha_ingreso_etapa_actual = nowIso;
-      if (String(cobro?.estado || '').trim() !== 'Observado') {
-        updatePayload.estado = 'En proceso';
-      }
-    }
-    const { error: updErr } = await supabaseAdmin.from('ct_cobros').update(updatePayload).eq('id', item.cobroId);
-    if (updErr) throw createError(500, updErr.message);
-
-    const auditDetail = JSON.stringify({
-      kind: 'grouped_payment',
-      paymentId: newPaymentId,
-      operationNumber,
-      paymentDate,
-      totalAmount,
-      notes,
-      constanciaPagoUrl,
-      allocatedAmount: item.amount,
-      cobroCount: normalizedItems.length
-    });
-
-    await supabaseAdmin.from('ct_audit_log').insert({
-      cobro_id: item.cobroId,
-      usuario: String(profile.email || 'sistema'),
-      etapa: updatePayload.etapa || String(cobro?.etapa || ''),
-      accion: PAYMENT_AUDIT_ACTION,
-      resultado: 'OK',
-      detalle: auditDetail
-    });
-  }
 
   invalidateCobroSheets();
 
   return {
     success: true,
     paymentId: newPaymentId,
-    operationNumber,
+    operationNumber: normalizedPayment.operationNumber,
     constanciaPagoUrl,
     cobroCount: normalizedItems.length
+  };
+}
+
+export async function updateGroupedPaymentModule({ actorEmail, paymentId, payment, req }) {
+  const profile = runtimeProfile(actorEmail);
+  if (!canManagePayments(profile)) {
+    throw createError(403, 'No tiene permisos para editar pagos.');
+  }
+
+  const { paymentId: wantedId, matching, firstDetail } = await getPaymentAuditBundle(profile, paymentId);
+  const previousPayment = {
+    paymentId: wantedId,
+    operationNumber: String(firstDetail?.operationNumber || '').trim(),
+    paymentDate: String(firstDetail?.paymentDate || '').trim(),
+    totalAmount: round2(firstDetail?.totalAmount || 0),
+    notes: String(firstDetail?.notes || '').trim(),
+    constanciaPagoUrl: String(firstDetail?.constanciaPagoUrl || '').trim()
+  };
+
+  const normalizedPayment = normalizePaymentInput({
+    ...payment,
+    constanciaPagoUrl: String(payment?.constanciaPagoUrl || previousPayment.constanciaPagoUrl || '').trim()
+  });
+  const previousAllocations = new Map(
+    matching.map((row) => {
+      const detail = parsePaymentAuditDetail(row?.detalle);
+      return [String(row?.cobro_id || '').trim(), round2(detail?.allocatedAmount || 0)];
+    })
+  );
+  const { normalizedItems, cobros } = await validatePaymentItems(profile, normalizedPayment, previousAllocations);
+
+  const oldCobroIds = matching.map((row) => String(row?.cobro_id || '').trim()).filter(Boolean);
+  const oldCobros = await getCobrosByIds(oldCobroIds, profile);
+  await clearGroupedPaymentCobros({
+    cobros: oldCobros,
+    paymentDetail: previousPayment,
+    actorEmail: profile.email,
+    auditAction: PAYMENT_UPDATED_AUDIT_ACTION
+  });
+
+  const auditIds = matching.map((row) => row?.id).filter((id) => id != null && `${id}`.trim());
+  if (auditIds.length) {
+    const { error: deleteAuditErr } = await supabaseAdmin.from('ct_audit_log').delete().in('id', auditIds);
+    if (deleteAuditErr) throw createError(500, deleteAuditErr.message);
+  }
+
+  const constanciaPagoUrl = await applyGroupedPaymentToCobros({
+    profile,
+    paymentIdValue: wantedId,
+    paymentData: normalizedPayment,
+    normalizedItems,
+    cobros,
+    req
+  });
+
+  invalidateCobroSheets();
+
+  return {
+    success: true,
+    paymentId: wantedId,
+    operationNumber: normalizedPayment.operationNumber,
+    constanciaPagoUrl,
+    cobroCount: normalizedItems.length
+  };
+}
+
+export async function deleteGroupedPaymentModule({ actorEmail, paymentId }) {
+  const profile = runtimeProfile(actorEmail);
+  if (!canManagePayments(profile)) {
+    throw createError(403, 'No tiene permisos para eliminar pagos.');
+  }
+
+  const { paymentId: wantedId, matching, firstDetail } = await getPaymentAuditBundle(profile, paymentId);
+  const oldCobroIds = matching.map((row) => String(row?.cobro_id || '').trim()).filter(Boolean);
+  const oldCobros = await getCobrosByIds(oldCobroIds, profile);
+  await clearGroupedPaymentCobros({
+    cobros: oldCobros,
+    paymentDetail: {
+      paymentId: wantedId,
+      operationNumber: String(firstDetail?.operationNumber || '').trim(),
+      paymentDate: String(firstDetail?.paymentDate || '').trim(),
+      totalAmount: round2(firstDetail?.totalAmount || 0),
+      notes: String(firstDetail?.notes || '').trim(),
+      constanciaPagoUrl: String(firstDetail?.constanciaPagoUrl || '').trim()
+    },
+    actorEmail: profile.email,
+    auditAction: PAYMENT_DELETED_AUDIT_ACTION
+  });
+
+  const auditIds = matching.map((row) => row?.id).filter((id) => id != null && `${id}`.trim());
+  if (auditIds.length) {
+    const { error: deleteAuditErr } = await supabaseAdmin.from('ct_audit_log').delete().in('id', auditIds);
+    if (deleteAuditErr) throw createError(500, deleteAuditErr.message);
+  }
+
+  invalidateCobroSheets();
+
+  return {
+    success: true,
+    paymentId: wantedId,
+    cobroCount: oldCobroIds.length
   };
 }

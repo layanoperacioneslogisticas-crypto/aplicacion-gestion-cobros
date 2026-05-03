@@ -30,14 +30,14 @@ Reemplaza `YOUR_PROJECT_ID` con el ID real de tu proyecto.
 
 ### 4. Configurar variables de entorno
 
-#### Para el Frontend (`web/.env.local`):
+#### Para el Frontend (`web/.env`):
 ```
 VITE_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR_ANON_KEY
 VITE_API_BASE_URL=http://localhost:3001
 ```
 
-#### Para el Backend (`api/.env.local`):
+#### Para el Backend (`api/.env`):
 ```
 PORT=3001
 CORS_ORIGIN=http://localhost:5173
