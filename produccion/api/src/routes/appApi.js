@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getGasRuntime } from '../gas/runtime.js';
 import { executeLegacySpecial } from '../services/legacySpecial.js';
+import { generateClosureReportModule } from '../services/closureReport.js';
 import {
   createGroupedPaymentModule,
   deleteGroupedPaymentModule,
@@ -368,6 +369,14 @@ appApiRouter.post('/cobros/:id/files', jsonRoute((req) => {
     optionalString(req.body?.actorEmail),
     req.body?.actorCtx || {}
   ], req);
+}));
+
+appApiRouter.post('/cobros/:id/closure-report', jsonRoute((req) => {
+  return generateClosureReportModule({
+    cobroId: requiredString(req.params.id, 'ID requerido.'),
+    actorEmail: optionalString(req.body?.actorEmail),
+    req
+  });
 }));
 
 appApiRouter.get('/aprobaciones-criticas', jsonRoute((req) => {

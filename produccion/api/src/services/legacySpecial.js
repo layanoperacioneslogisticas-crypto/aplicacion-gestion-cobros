@@ -1000,6 +1000,8 @@ export async function executeLegacySpecial(method, args, { req }) {
       return buildStorageBrowserUrl(LEGACY_ROOT_PREFIX, req);
     case 'getDataForFrontend':
       return getDataForFrontendSpecial(args);
+    case 'getDashboardStats':
+      return getGasRuntime().call('getDashboardStats', Array.isArray(args) ? args : []);
     case 'getRuleConfigData':
       return getRuleConfigDataSpecial(args);
     case 'saveCfgCountry':
